@@ -97,13 +97,13 @@
     
     // Город: только название, без цвета и координат
     // Район: название, цвет, координаты + выбор города
-    // Микрорайон: название, цвет, координаты + выбор района
+    // Микрорайон: название, цвет, координаты + выбор города + выбор района
     const citySelectWrapper = byId('mini-city-select-wrapper');
     
     if (nameWrapper) nameWrapper.style.display = 'block';
     if (colorWrapper) colorWrapper.style.display = isCity ? 'none' : 'block';
     if (coordsWrapper) coordsWrapper.style.display = isCity ? 'none' : 'block';
-    if (citySelectWrapper) citySelectWrapper.style.display = isDistrict ? 'block' : 'none';
+    if (citySelectWrapper) citySelectWrapper.style.display = (isDistrict || isMicro) ? 'block' : 'none';
     if (districtSelectWrapper) districtSelectWrapper.style.display = isMicro ? 'block' : 'none';
   }
 
@@ -351,8 +351,28 @@
       });
     });
     
-    // Обработчик выбора компании - перезагружаем список объектов
+    // Обработчик выбора компании - перезагружаем города и список объектов
     byId('mini-company').addEventListener('change', async () => {
+      const companyId = byId('mini-company').value;
+      const citySelect = byId('mini-city-select');
+      citySelect.innerHTML = '<option value="">Выберите город</option>';
+      
+      if (companyId) {
+        try {
+          const response = await ApiModule.getCities(companyId);
+          if (response.success && response.data) {
+            response.data.forEach(city => {
+              const opt = document.createElement('option');
+              opt.value = city.id;
+              opt.textContent = city.name;
+              citySelect.appendChild(opt);
+            });
+          }
+        } catch (e) {
+          console.error('Ошибка загрузки городов:', e);
+        }
+      }
+      
       await loadExistingObjects();
     });
     
@@ -361,6 +381,31 @@
       const action = document.querySelector('input[name="mini-action"]:checked')?.value;
       if (action === 'edit') {
         await loadObjectForEdit();
+      }
+    });
+    
+    // Обработчик выбора города - фильтруем районы для микрорайона
+    byId('mini-city-select').addEventListener('change', async () => {
+      const cityId = byId('mini-city-select').value;
+      const districtSelect = byId('mini-district-select');
+      districtSelect.innerHTML = '<option value="">Выберите район</option>';
+      
+      if (!cityId) return;
+      
+      try {
+        const response = await ApiModule.getDistricts();
+        if (response.success && response.data) {
+          // Фильтруем районы по выбранному городу
+          const filteredDistricts = response.data.filter(d => d.city_id == cityId);
+          filteredDistricts.forEach(district => {
+            const opt = document.createElement('option');
+            opt.value = district.id;
+            opt.textContent = district.name;
+            districtSelect.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки районов:', e);
       }
     });
     
