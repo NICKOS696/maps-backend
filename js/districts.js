@@ -166,28 +166,43 @@ const DistrictsModule = {
     /**
      * Загружает районы
      */
-    loadDistricts: function() {
-        // Загружаем только из новой структуры по выбранным компании/городу
-        const companySel = document.getElementById('company-select');
-        const citySel = document.getElementById('city-select');
-        let company = companySel ? companySel.value : '';
-        let city = citySel ? citySel.value : '';
-        if ((!company || !city) && typeof CompanyManager !== 'undefined') {
-            // Используем текущие значения менеджера, если выбраны ранее
-            company = company || (CompanyManager.getCurrentCompany && CompanyManager.getCurrentCompany());
-            city = city || (CompanyManager.getCurrentCity && CompanyManager.getCurrentCity());
-        }
-        if (!company || !city) {
-            alert('Сначала выберите компанию и город.');
-            return;
-        }
+    loadDistricts: async function() {
         try {
-            const districtsFC = CompanyManager.getDistrictsFC(company, city);
-            MapModule.renderFromFeatureCollections(districtsFC, null);
-            this.initSelects();
+            // Загружаем районы через API
+            const response = await ApiModule.getDistricts();
+            
+            if (response.success && response.data) {
+                // Очищаем текущий слой
+                MapModule.districtLayer.clearLayers();
+                
+                // Преобразуем данные в GeoJSON FeatureCollection
+                const features = response.data.map(district => ({
+                    type: 'Feature',
+                    properties: {
+                        id: district.id,
+                        name: district.name,
+                        color: district.color,
+                        city_id: district.city_id
+                    },
+                    geometry: district.geometry
+                }));
+                
+                const featureCollection = {
+                    type: 'FeatureCollection',
+                    features: features
+                };
+                
+                // Отображаем на карте
+                MapModule.renderFromFeatureCollections(featureCollection, null);
+                this.initSelects();
+                
+                console.log(`Загружено районов: ${features.length}`);
+            } else {
+                alert('Не удалось загрузить районы');
+            }
         } catch (e) {
-            console.error('Ошибка загрузки районов из CompanyManager:', e);
-            alert('Не удалось загрузить районы для выбранной компании и города.');
+            console.error('Ошибка загрузки районов:', e);
+            alert('Ошибка при загрузке районов. Проверьте подключение к серверу.');
         }
     },
     
@@ -345,33 +360,51 @@ const DistrictsModule = {
     /**
      * Загружает микрорайоны
      */
-    loadMicrodistricts: function() {
-        // Загружаем только из новой структуры по выбранным компании/городу
-        const companySel = document.getElementById('company-select');
-        const citySel = document.getElementById('city-select');
-        let company = companySel ? companySel.value : '';
-        let city = citySel ? citySel.value : '';
-        if ((!company || !city) && typeof CompanyManager !== 'undefined') {
-            company = company || (CompanyManager.getCurrentCompany && CompanyManager.getCurrentCompany());
-            city = city || (CompanyManager.getCurrentCity && CompanyManager.getCurrentCity());
-        }
-        if (!company || !city) {
-            alert('Сначала выберите компанию и город.');
-            return;
-        }
+    loadMicrodistricts: async function() {
         try {
-            const microFC = CompanyManager.getMicrodistrictsFC(company, city);
-            let districtsFC = null;
-            try {
-                if (MapModule.districtLayer && MapModule.districtLayer.toGeoJSON) {
-                    districtsFC = MapModule.districtLayer.toGeoJSON();
-                }
-            } catch(_) {}
-            MapModule.renderFromFeatureCollections(districtsFC, microFC);
-            this.initSelects();
+            // Загружаем микрорайоны через API
+            const response = await ApiModule.getMicrodistricts();
+            
+            if (response.success && response.data) {
+                // Очищаем текущий слой
+                MapModule.microdistrictLayer.clearLayers();
+                
+                // Преобразуем данные в GeoJSON FeatureCollection
+                const features = response.data.map(microdistrict => ({
+                    type: 'Feature',
+                    properties: {
+                        id: microdistrict.id,
+                        name: microdistrict.name,
+                        color: microdistrict.color,
+                        district_id: microdistrict.district_id
+                    },
+                    geometry: microdistrict.geometry
+                }));
+                
+                const featureCollection = {
+                    type: 'FeatureCollection',
+                    features: features
+                };
+                
+                // Получаем текущие районы
+                let districtsFC = null;
+                try {
+                    if (MapModule.districtLayer && MapModule.districtLayer.toGeoJSON) {
+                        districtsFC = MapModule.districtLayer.toGeoJSON();
+                    }
+                } catch(_) {}
+                
+                // Отображаем на карте
+                MapModule.renderFromFeatureCollections(districtsFC, featureCollection);
+                this.initSelects();
+                
+                console.log(`Загружено микрорайонов: ${features.length}`);
+            } else {
+                alert('Не удалось загрузить микрорайоны');
+            }
         } catch (e) {
-            console.error('Ошибка загрузки микрорайонов из CompanyManager:', e);
-            alert('Не удалось загрузить микрорайоны для выбранной компании и города.');
+            console.error('Ошибка загрузки микрорайонов:', e);
+            alert('Ошибка при загрузке микрорайонов. Проверьте подключение к серверу.');
         }
     },
     

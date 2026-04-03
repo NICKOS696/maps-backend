@@ -95,5 +95,16 @@ const CONFIG = {
         districtsKey: 'tashkent_districts',
         microdistrictsKey: 'tashkent_microdistricts',
         clientsKey: 'tashkent_clients'
+    },
+    
+    // Настройки API
+    api: {
+        baseUrl: '/maps/api',
+        endpoints: {
+            districts: '/districts',
+            microdistricts: '/microdistricts',
+            auth: '/auth/login',
+            register: '/auth/register'
+        }
     }
 };
