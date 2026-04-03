@@ -4,27 +4,52 @@
 (function(){
   function byId(id){ return document.getElementById(id); }
 
-  function populateCompanies(selectEl){
+  async function populateCompanies(selectEl){
     selectEl.innerHTML = '<option value="">Выберите компанию</option>';
-    CompanyManager.getCompanies().forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c; opt.textContent = c; selectEl.appendChild(opt);
-    });
+    
+    try {
+      const response = await ApiModule.getCompanies();
+      if (response.success && response.data) {
+        response.data.forEach(company => {
+          const opt = document.createElement('option');
+          opt.value = company.id;
+          opt.textContent = company.name;
+          selectEl.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки компаний:', e);
+      // Fallback на CompanyManager если API не работает
+      CompanyManager.getCompanies().forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c; selectEl.appendChild(opt);
+      });
+    }
   }
 
   async function onCompanyChange(){
-    const company = byId('company-select').value;
+    const companySelect = byId('company-select');
+    const company = companySelect.value;
     if (!company) return;
-    await CompanyManager.loadCompany(company);
-    // fill city list
+    
+    // Загружаем города из API
     const citySel = byId('city-select');
     citySel.innerHTML = '<option value="">Выберите город</option>';
-    CompanyManager.getCities(company).forEach(city => {
-      const opt = document.createElement('option');
-      opt.value = city; opt.textContent = city; citySel.appendChild(opt);
-    });
-    // also fill mini-editor company
-    populateCompanies(byId('mini-company'));
+    
+    try {
+      const response = await ApiModule.getCities(company);
+      if (response.success && response.data) {
+        response.data.forEach(city => {
+          const opt = document.createElement('option');
+          opt.value = city.id;
+          opt.textContent = city.name;
+          opt.dataset.cityId = city.id;
+          citySel.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки городов:', e);
+    }
   }
 
   function onCityChange(){
@@ -502,8 +527,8 @@
     });
   }
 
-  function setupHeaderSelectors(){
-    populateCompanies(byId('company-select'));
+  async function setupHeaderSelectors(){
+    await populateCompanies(byId('company-select'));
     byId('company-select').addEventListener('change', onCompanyChange);
     byId('city-select').addEventListener('change', onCityChange);
 
