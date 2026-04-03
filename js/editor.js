@@ -62,6 +62,14 @@
   }
 
   function openMiniEditor(){
+    // Проверяем авторизацию
+    if (!ApiModule.isAuthenticated()) {
+      // Открываем модальное окно авторизации
+      const authModal = byId('auth-modal');
+      authModal.style.display = 'block';
+      return;
+    }
+    
     const modal = byId('mini-editor-modal');
     // sync company list
     populateCompanies(byId('mini-company'));
@@ -81,18 +89,24 @@
     const cities = CompanyManager.getCities(mainCompany || CompanyManager.getCurrentCompany());
     cities.forEach(c => { const opt = document.createElement('option'); opt.value=c; opt.textContent=c; cityListSel.appendChild(opt); });
 
-    // если выбран город — подгрузим районы
-    const fillDistricts = () => {
+    // если выбран город — подгрузим районы через API
+    const fillDistricts = async () => {
       const selCity = cityListSel.value;
       const dSel = byId('mini-district-select');
       dSel.innerHTML = '';
-      const districtsFC = CompanyManager.getDistrictsFC(mainCompany || CompanyManager.getCurrentCompany(), selCity);
-      if (districtsFC && districtsFC.features){
-        districtsFC.features.forEach(f=>{
-          if (f.properties && f.properties.name){
-            const opt = document.createElement('option'); opt.value=f.properties.name; opt.textContent=f.properties.name; dSel.appendChild(opt);
-          }
-        });
+      
+      try {
+        const response = await ApiModule.getDistricts();
+        if (response.success && response.data) {
+          response.data.forEach(district => {
+            const opt = document.createElement('option');
+            opt.value = district.id;
+            opt.textContent = district.name;
+            dSel.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки районов:', e);
       }
     };
     cityListSel.onchange = fillDistricts;
@@ -123,8 +137,7 @@
     const closes = document.querySelectorAll('.mini-editor-close');
     closes.forEach(c => c.addEventListener('click', closeMiniEditor));
 
-    byId('mini-save').addEventListener('click', () => {
-      const company = byId('mini-company').value;
+    byId('mini-save').addEventListener('click', async () => {
       const type = document.querySelector('input[name="mini-type"]:checked').value;
       let name = byId('mini-name').value.trim();
       const color = byId('mini-color').value || '#3388ff';
@@ -132,46 +145,79 @@
 
       try {
         if (type === 'city') {
-          // создаем пустой город
+          // Создаем город через API
           const cityName = byId('mini-city').value.trim();
           if (!cityName){ alert('Введите название города'); return; }
-          CompanyManager.ensureCity(company, cityName);
-          // обновим селект города приложения
-          const citySel = byId('city-select');
-          if (![...citySel.options].some(o => o.value === cityName)){
-            const opt = document.createElement('option'); opt.value = cityName; opt.textContent = cityName; citySel.appendChild(opt);
-          }
-          citySel.value = cityName;
-          CompanyManager.setCity(cityName);
-          onCityChange();
+          
+          // TODO: Добавить API endpoint для создания города
+          alert('Создание города: ' + cityName + '\nФункционал будет добавлен в следующей версии.');
+          closeMiniEditor();
+          
         } else if (type === 'district') {
-          const selCity = byId('mini-city-select').value || byId('mini-city').value.trim();
-          if (!company || !selCity){ alert('Пожалуйста, выберите город.'); return; }
           if (!name){ alert('Введите название района'); return; }
           if (!coordsText){ alert('Введите координаты района'); return; }
-          CompanyManager.addDistrict({ company, city: selCity, name, color, coordinates: coordsText });
-          // если редактируем текущий город — перерисуем
-          if (byId('city-select').value === selCity) onCityChange();
+          
+          // Парсим координаты в GeoJSON Polygon
+          const geometry = parseCoordinatesToPolygon(coordsText);
+          if (!geometry) {
+            alert('Неверный формат координат');
+            return;
+          }
+          
+          // Создаем район через API
+          const response = await ApiModule.createDistrict({
+            name: name,
+            city_id: 1, // TODO: получать из выбранного города
+            color: color,
+            geometry: geometry
+          });
+          
+          if (response.success) {
+            alert('Район успешно создан!');
+            // Перезагружаем районы
+            if (DistrictsModule && DistrictsModule.loadDistricts) {
+              await DistrictsModule.loadDistricts();
+            }
+            closeMiniEditor();
+          } else {
+            alert('Ошибка при создании района: ' + response.message);
+          }
+          
         } else if (type === 'microdistrict') {
-          const selCity = byId('mini-city-select').value || byId('mini-city').value.trim();
-          const parentDistrict = byId('mini-district-select').value || byId('mini-parent-district').value.trim();
-          if (!company || !selCity){ alert('Пожалуйста, выберите город.'); return; }
-          if (!parentDistrict){ alert('Пожалуйста, выберите район.'); return; }
+          const parentDistrictId = byId('mini-district-select').value;
+          if (!parentDistrictId){ alert('Пожалуйста, выберите район.'); return; }
           if (!name){ alert('Введите название микрорайона'); return; }
           if (!coordsText){ alert('Введите координаты микрорайона'); return; }
-          CompanyManager.addMicrodistrict({ company, city: selCity, districtName: parentDistrict, name, color, coordinates: coordsText });
-          if (byId('city-select').value === selCity) onCityChange();
+          
+          // Парсим координаты в GeoJSON Polygon
+          const geometry = parseCoordinatesToPolygon(coordsText);
+          if (!geometry) {
+            alert('Неверный формат координат');
+            return;
+          }
+          
+          // Создаем микрорайон через API
+          const response = await ApiModule.createMicrodistrict({
+            name: name,
+            district_id: parseInt(parentDistrictId),
+            color: color,
+            geometry: geometry
+          });
+          
+          if (response.success) {
+            alert('Микрорайон успешно создан!');
+            // Перезагружаем микрорайоны
+            if (DistrictsModule && DistrictsModule.loadMicrodistricts) {
+              await DistrictsModule.loadMicrodistricts();
+            }
+            closeMiniEditor();
+          } else {
+            alert('Ошибка при создании микрорайона: ' + response.message);
+          }
         }
-        // If current selection matches, re-render
-        if (byId('company-select').value === company){
-          // ensure city exists in dropdown
-          const citySel = byId('city-select');
-          // nothing extra, handled above per type
-        }
-        closeMiniEditor();
       } catch (e) {
         console.error(e);
-        alert('Ошибка при добавлении объекта. Подробности в консоли.');
+        alert('Ошибка при добавлении объекта: ' + e.message);
       }
     });
   }
@@ -250,6 +296,41 @@
 
     // Не запоминаем последнюю компанию/город — начинать с пустых селекторов
 
+    // Обработчик авторизации
+    const authModal = byId('auth-modal');
+    const authCloseBtn = authModal.querySelector('.auth-close');
+    authCloseBtn.addEventListener('click', () => {
+      authModal.style.display = 'none';
+    });
+    
+    byId('auth-login').addEventListener('click', async () => {
+      const username = byId('auth-username').value.trim();
+      const password = byId('auth-password').value.trim();
+      
+      if (!username || !password) {
+        alert('Введите логин и пароль');
+        return;
+      }
+      
+      try {
+        const response = await ApiModule.login(username, password);
+        if (response.success) {
+          alert('Авторизация успешна!');
+          authModal.style.display = 'none';
+          // Очищаем поля
+          byId('auth-username').value = '';
+          byId('auth-password').value = '';
+          // Открываем мини-редактор
+          openMiniEditor();
+        } else {
+          alert('Ошибка авторизации: ' + response.message);
+        }
+      } catch (e) {
+        console.error('Ошибка авторизации:', e);
+        alert('Ошибка при авторизации: ' + e.message);
+      }
+    });
+    
     // Fill mode toggle: show/hide adding tools only
     const fillToggle = byId('fill-mode-toggle');
     const miniEditorBtn = byId('open-mini-editor');

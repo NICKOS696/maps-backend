@@ -1818,3 +1818,64 @@ const Utils = {
         }
     }
 };
+
+/**
+ * Парсит координаты из текста в GeoJSON Polygon
+ * @param {string} coordsText - Текст с координатами
+ * @returns {Object|null} GeoJSON Polygon geometry или null при ошибке
+ */
+function parseCoordinatesToPolygon(coordsText) {
+    try {
+        const lines = coordsText.trim().split('\n');
+        const coordinates = [];
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            
+            // Пробуем разные форматы: "lat, lng" или "[lng, lat]"
+            let lat, lng;
+            
+            if (line.startsWith('[')) {
+                // Формат [lng, lat]
+                const match = line.match(/\[([-\d.]+),\s*([-\d.]+)\]/);
+                if (match) {
+                    lng = parseFloat(match[1]);
+                    lat = parseFloat(match[2]);
+                }
+            } else {
+                // Формат lat, lng или lat;lng
+                const parts = line.split(/[,;]/).map(p => p.trim());
+                if (parts.length >= 2) {
+                    lat = parseFloat(parts[0]);
+                    lng = parseFloat(parts[1]);
+                }
+            }
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                // GeoJSON использует [lng, lat]
+                coordinates.push([lng, lat]);
+            }
+        }
+        
+        if (coordinates.length < 3) {
+            console.error('Недостаточно координат для полигона (минимум 3)');
+            return null;
+        }
+        
+        // Замыкаем полигон если первая и последняя точки не совпадают
+        const first = coordinates[0];
+        const last = coordinates[coordinates.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+            coordinates.push([...first]);
+        }
+        
+        return {
+            type: 'Polygon',
+            coordinates: [coordinates]
+        };
+    } catch (e) {
+        console.error('Ошибка парсинга координат:', e);
+        return null;
+    }
+}
