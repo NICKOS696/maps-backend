@@ -141,6 +141,9 @@
     // Применяем видимость полей по типу
     refreshMiniTypeUI();
     
+    // Загружаем список существующих объектов если выбрано редактирование/удаление
+    await loadExistingObjects();
+    
     modal.style.display = 'block';
   }
 
