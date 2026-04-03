@@ -96,11 +96,14 @@
     }
     
     // Город: только название, без цвета и координат
-    // Район: название, цвет, координаты
+    // Район: название, цвет, координаты + выбор города
     // Микрорайон: название, цвет, координаты + выбор района
+    const citySelectWrapper = byId('mini-city-select-wrapper');
+    
     if (nameWrapper) nameWrapper.style.display = 'block';
     if (colorWrapper) colorWrapper.style.display = isCity ? 'none' : 'block';
     if (coordsWrapper) coordsWrapper.style.display = isCity ? 'none' : 'block';
+    if (citySelectWrapper) citySelectWrapper.style.display = isDistrict ? 'block' : 'none';
     if (districtSelectWrapper) districtSelectWrapper.style.display = isMicro ? 'block' : 'none';
   }
 
@@ -141,10 +144,33 @@
     const coordsArea = byId('mini-coords');
     if (coordsArea) coordsArea.value = '';
     
+    // Обработчик изменения компании - загружаем города
+    const loadCitiesForCompany = async () => {
+      const companyId = byId('mini-company').value;
+      const citySelect = byId('mini-city-select');
+      citySelect.innerHTML = '<option value="">Выберите город</option>';
+      
+      if (!companyId) return;
+      
+      try {
+        const response = await ApiModule.getCities(companyId);
+        if (response.success && response.data) {
+          response.data.forEach(city => {
+            const opt = document.createElement('option');
+            opt.value = city.id;
+            opt.textContent = city.name;
+            citySelect.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки городов:', e);
+      }
+    };
+    
     // Загружаем районы для выбора при создании микрорайона
     const loadDistricts = async () => {
       const dSel = byId('mini-district-select');
-      dSel.innerHTML = '';
+      dSel.innerHTML = '<option value="">Выберите район</option>';
       
       try {
         const response = await ApiModule.getDistricts();
@@ -161,6 +187,7 @@
       }
     };
     
+    await loadCitiesForCompany();
     await loadDistricts();
     
     // Применяем видимость полей по типу
@@ -424,6 +451,11 @@
         
         // РАЙОН
         else if (type === 'district') {
+          const cityId = byId('mini-city-select').value;
+          if (!cityId) {
+            alert('Выберите город');
+            return;
+          }
           if (!coordsText) {
             alert('Введите координаты района');
             return;
@@ -434,14 +466,6 @@
             alert('Неверный формат координат');
             return;
           }
-          
-          const citiesResponse = await ApiModule.getCities(companyId);
-          if (!citiesResponse.success || !citiesResponse.data || citiesResponse.data.length === 0) {
-            alert('У выбранной компании нет городов. Сначала создайте город.');
-            return;
-          }
-          
-          const cityId = citiesResponse.data[0].id;
           
           if (action === 'create') {
             const response = await ApiModule.createDistrict({
