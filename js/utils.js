@@ -1848,25 +1848,25 @@ function parseCoordinatesToPolygon(coordsText) {
                 const num2 = parseFloat(parts[1]);
                 
                 if (!isNaN(num1) && !isNaN(num2)) {
-                    // Определяем формат по диапазону значений
-                    // Широта (lat): -90 до 90
-                    // Долгота (lng): -180 до 180
-                    // Для Ташкента: lat ~41, lng ~69
+                    // Определяем формат координат
+                    // Для Ташкента: lng ~69, lat ~41
+                    // В GeoJSON из файла формат: [lng, lat]
+                    // В обычном формате: lat, lng
                     
-                    if (num1 >= -90 && num1 <= 90 && num2 >= -90 && num2 <= 90) {
-                        // Оба числа в диапазоне широты
-                        // Проверяем какое больше подходит для долготы
-                        if (Math.abs(num1) > Math.abs(num2)) {
-                            // num1 скорее всего долгота (большее значение)
-                            lng = num1;
-                            lat = num2;
-                        } else {
-                            // num2 скорее всего долгота
-                            lat = num1;
-                            lng = num2;
-                        }
+                    let lng, lat;
+                    
+                    // Если первое число больше 50, это скорее всего долгота (lng)
+                    // Для Ташкента: lng = 69, lat = 41
+                    if (Math.abs(num1) > 50) {
+                        // Формат [lng, lat] - как в GeoJSON
+                        lng = num1;
+                        lat = num2;
+                    } else if (Math.abs(num2) > 50) {
+                        // Формат [lat, lng] - обычный формат
+                        lat = num1;
+                        lng = num2;
                     } else {
-                        // Стандартный случай
+                        // Оба числа меньше 50 - используем стандартный формат lat, lng
                         lat = num1;
                         lng = num2;
                     }
