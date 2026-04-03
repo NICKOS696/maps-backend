@@ -1833,33 +1833,51 @@ function parseCoordinatesToPolygon(coordsText) {
             line = line.trim();
             if (!line) continue;
             
-            // Пробуем разные форматы: "lat, lng" или "[lng, lat]"
+            // Убираем лишние символы (запятые в конце, скобки)
+            line = line.replace(/,\s*$/, '').replace(/^\[/, '').replace(/\]$/, '');
+            
+            // Пробуем разные форматы
             let lat, lng;
             
-            if (line.startsWith('[')) {
-                // Формат [lng, lat]
-                const match = line.match(/\[([-\d.]+),\s*([-\d.]+)\]/);
-                if (match) {
-                    lng = parseFloat(match[1]);
-                    lat = parseFloat(match[2]);
-                }
-            } else {
-                // Формат lat, lng или lat;lng
-                const parts = line.split(/[,;]/).map(p => p.trim());
-                if (parts.length >= 2) {
-                    lat = parseFloat(parts[0]);
-                    lng = parseFloat(parts[1]);
-                }
-            }
+            // Разбиваем по запятой
+            const parts = line.split(',').map(p => p.trim());
             
-            if (!isNaN(lat) && !isNaN(lng)) {
-                // GeoJSON использует [lng, lat]
-                coordinates.push([lng, lat]);
+            if (parts.length >= 2) {
+                const num1 = parseFloat(parts[0]);
+                const num2 = parseFloat(parts[1]);
+                
+                if (!isNaN(num1) && !isNaN(num2)) {
+                    // Определяем формат по диапазону значений
+                    // Широта (lat): -90 до 90
+                    // Долгота (lng): -180 до 180
+                    // Для Ташкента: lat ~41, lng ~69
+                    
+                    if (num1 >= -90 && num1 <= 90 && num2 >= -90 && num2 <= 90) {
+                        // Оба числа в диапазоне широты
+                        // Проверяем какое больше подходит для долготы
+                        if (Math.abs(num1) > Math.abs(num2)) {
+                            // num1 скорее всего долгота (большее значение)
+                            lng = num1;
+                            lat = num2;
+                        } else {
+                            // num2 скорее всего долгота
+                            lat = num1;
+                            lng = num2;
+                        }
+                    } else {
+                        // Стандартный случай
+                        lat = num1;
+                        lng = num2;
+                    }
+                    
+                    // GeoJSON использует [lng, lat]
+                    coordinates.push([lng, lat]);
+                }
             }
         }
         
         if (coordinates.length < 3) {
-            console.error('Недостаточно координат для полигона (минимум 3)');
+            console.error('Недостаточно координат для полигона (минимум 3). Найдено:', coordinates.length);
             return null;
         }
         
