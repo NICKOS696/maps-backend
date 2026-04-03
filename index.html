@@ -243,19 +243,13 @@
             <h2>Добавить данные</h2>
             <div class="form-group">
                 <label for="mini-company">Компания</label>
-                <select id="mini-company"></select>
-            </div>
-            <div class="form-group" id="mini-city-text-wrapper">
-                <label for="mini-city">Город</label>
-                <input type="text" id="mini-city" placeholder="Например: Tashkent">
+                <select id="mini-company">
+                    <option value="">Загрузка...</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Что добавить?</label>
                 <div class="radio-group">
-                    <label>
-                        <input type="radio" name="mini-type" value="city">
-                        Город
-                    </label>
                     <label>
                         <input type="radio" name="mini-type" value="district" checked>
                         Район
@@ -266,20 +260,10 @@
                     </label>
                 </div>
             </div>
-            <!-- Для выбора города при добавлении района/микрорайона -->
-            <div class="form-group" id="mini-city-select-wrapper" style="display:none;">
-                <label for="mini-city-select">Город</label>
-                <select id="mini-city-select"></select>
-            </div>
             <!-- Для выбора района при добавлении микрорайона -->
             <div class="form-group" id="mini-district-select-wrapper" style="display:none;">
                 <label for="mini-district-select">Район</label>
                 <select id="mini-district-select"></select>
-            </div>
-            <!-- Старое текстовое поле района (оставлено скрытым для обратной совместимости) -->
-            <div class="form-group" id="mini-district-wrapper" style="display:none;">
-                <label for="mini-parent-district">Район (для микрорайона)</label>
-                <input type="text" id="mini-parent-district" placeholder="Название существующего района">
             </div>
             <div class="form-group" id="mini-name-wrapper">
                 <label for="mini-name">Название</label>

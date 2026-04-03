@@ -61,7 +61,7 @@
     byId('mini-district-wrapper').style.display = 'none';
   }
 
-  function openMiniEditor(){
+  async function openMiniEditor(){
     // Проверяем авторизацию
     if (!ApiModule.isAuthenticated()) {
       // Открываем модальное окно авторизации
@@ -70,6 +70,63 @@
       return;
     }
     
+    const modal = byId('mini-editor-modal');
+    
+    // Загружаем компании через API
+    try {
+      const response = await ApiModule.getCompanies();
+      const companySelect = byId('mini-company');
+      companySelect.innerHTML = '<option value="">Выберите компанию</option>';
+      
+      if (response.success && response.data) {
+        response.data.forEach(company => {
+          const opt = document.createElement('option');
+          opt.value = company.id;
+          opt.textContent = company.name;
+          companySelect.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      console.error('Ошибка загрузки компаний:', e);
+      alert('Ошибка при загрузке компаний');
+      return;
+    }
+    
+    // Очищаем поля
+    const nameInput = byId('mini-name');
+    if (nameInput) nameInput.value = '';
+    const coordsArea = byId('mini-coords');
+    if (coordsArea) coordsArea.value = '';
+    
+    // Загружаем районы для выбора при создании микрорайона
+    const loadDistricts = async () => {
+      const dSel = byId('mini-district-select');
+      dSel.innerHTML = '';
+      
+      try {
+        const response = await ApiModule.getDistricts();
+        if (response.success && response.data) {
+          response.data.forEach(district => {
+            const opt = document.createElement('option');
+            opt.value = district.id;
+            opt.textContent = district.name;
+            dSel.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Ошибка загрузки районов:', e);
+      }
+    };
+    
+    await loadDistricts();
+    
+    // Применяем видимость полей по типу
+    refreshMiniTypeUI();
+    
+    modal.style.display = 'block';
+  }
+
+  function oldOpenMiniEditor_backup(){
     const modal = byId('mini-editor-modal');
     // sync company list
     populateCompanies(byId('mini-company'));
@@ -139,23 +196,29 @@
 
     byId('mini-save').addEventListener('click', async () => {
       const type = document.querySelector('input[name="mini-type"]:checked').value;
+      const companyId = byId('mini-company').value;
       let name = byId('mini-name').value.trim();
       const color = byId('mini-color').value || '#3388ff';
       const coordsText = byId('mini-coords').value;
 
       try {
-        if (type === 'city') {
-          // Создаем город через API
-          const cityName = byId('mini-city').value.trim();
-          if (!cityName){ alert('Введите название города'); return; }
-          
-          // TODO: Добавить API endpoint для создания города
-          alert('Создание города: ' + cityName + '\nФункционал будет добавлен в следующей версии.');
-          closeMiniEditor();
-          
-        } else if (type === 'district') {
+        if (!companyId) {
+          alert('Выберите компанию');
+          return;
+        }
+        
+        if (type === 'district') {
           if (!name){ alert('Введите название района'); return; }
           if (!coordsText){ alert('Введите координаты района'); return; }
+          
+          // Получаем city_id для выбранной компании (город ТАШКЕНТ)
+          const citiesResponse = await ApiModule.getCompanyCities(companyId);
+          if (!citiesResponse.success || !citiesResponse.data || citiesResponse.data.length === 0) {
+            alert('У выбранной компании нет городов');
+            return;
+          }
+          
+          const cityId = citiesResponse.data[0].id; // Берем первый город (ТАШКЕНТ)
           
           // Парсим координаты в GeoJSON Polygon
           const geometry = parseCoordinatesToPolygon(coordsText);
@@ -167,7 +230,7 @@
           // Создаем район через API
           const response = await ApiModule.createDistrict({
             name: name,
-            city_id: 1, // TODO: получать из выбранного города
+            city_id: cityId,
             color: color,
             geometry: geometry
           });

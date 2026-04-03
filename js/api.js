@@ -142,5 +142,19 @@ const ApiModule = {
         return await this.request(`${CONFIG.api.endpoints.microdistricts}/${id}`, {
             method: 'DELETE'
         });
+    },
+    
+    /**
+     * Получение всех компаний
+     */
+    async getCompanies() {
+        return await this.request('/companies');
+    },
+    
+    /**
+     * Получение городов компании
+     */
+    async getCompanyCities(companyId) {
+        return await this.request(`/companies/${companyId}/cities`);
     }
 };

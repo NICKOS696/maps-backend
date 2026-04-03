@@ -6,6 +6,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const districtsRoutes = require('./routes/districts');
 const microdistrictsRoutes = require('./routes/microdistricts');
+const companiesRoutes = require('./routes/companies');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth/login, /api/auth/register',
+      companies: '/api/companies',
       districts: '/api/districts',
       microdistricts: '/api/microdistricts'
     }
@@ -46,6 +48,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/companies', companiesRoutes);
 app.use('/api/districts', districtsRoutes);
 app.use('/api/microdistricts', microdistrictsRoutes);
 
