@@ -10,7 +10,6 @@ const DistrictsModule = {
         // Привязываем обработчики событий к кнопкам
         document.getElementById('load-districts').addEventListener('click', this.loadDistricts.bind(this));
         document.getElementById('load-microdistricts').addEventListener('click', this.loadMicrodistricts.bind(this));
-        document.getElementById('toggle-edit-mode').addEventListener('click', this.toggleEditMode.bind(this));
         document.getElementById('clear-map').addEventListener('click', () => {
             MapModule.districtLayer.clearLayers();
             MapModule.microdistrictLayer.clearLayers();

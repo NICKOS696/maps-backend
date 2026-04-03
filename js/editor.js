@@ -227,7 +227,10 @@
     byId('company-select').addEventListener('change', onCompanyChange);
     byId('city-select').addEventListener('change', onCityChange);
 
-    byId('save-company-data').addEventListener('click', async ()=>{
+    // Кнопки save-company-data и load-company-file удалены из UI
+    const saveBtn = byId('save-company-data');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async ()=>{
       // Открываем модальное окно выбора формата
       const modal = document.getElementById('save-format-modal');
       modal.style.display = 'block';
@@ -263,8 +266,11 @@
         }
       };
     });
+    }
 
-    byId('load-company-file').addEventListener('click', async ()=>{
+    const loadBtn = byId('load-company-file');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', async ()=>{
       try {
         const company = byId('company-select').value;
         if (!company){ alert('Сначала выберите компанию.'); return; }
@@ -293,6 +299,7 @@
         input.click();
       } catch(e){ console.error(e); alert('Ошибка загрузки файла компании'); }
     });
+    }
 
     // Не запоминаем последнюю компанию/город — начинать с пустых селекторов
 
@@ -330,28 +337,6 @@
         alert('Ошибка при авторизации: ' + e.message);
       }
     });
-    
-    // Fill mode toggle: show/hide adding tools only
-    const fillToggle = byId('fill-mode-toggle');
-    const miniEditorBtn = byId('open-mini-editor');
-    const editModeBtn = document.getElementById('toggle-edit-mode');
-    const miniModal = document.getElementById('mini-editor-modal');
-    const applyFillMode = () => {
-      const on = fillToggle.checked;
-      // Мини-редактор
-      miniEditorBtn.style.display = on ? 'block' : 'none';
-      if (!on && miniModal && miniModal.style.display === 'block') miniModal.style.display = 'none';
-      // Режим рисования
-      if (editModeBtn){
-        editModeBtn.style.display = on ? 'inline-block' : 'none';
-        if (!on && MapModule && MapModule.editMode){
-          // выключим редактирование, если активно
-          MapModule.toggleEditMode();
-        }
-      }
-    };
-    fillToggle.addEventListener('change', applyFillMode);
-    applyFillMode();
   }
 
   document.addEventListener('DOMContentLoaded', function(){
