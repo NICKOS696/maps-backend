@@ -156,5 +156,42 @@ const ApiModule = {
      */
     async getCompanyCities(companyId) {
         return await this.request(`/companies/${companyId}/cities`);
+    },
+    
+    /**
+     * Получение всех городов
+     */
+    async getCities(companyId = null) {
+        const url = companyId ? `/cities?company_id=${companyId}` : '/cities';
+        return await this.request(url);
+    },
+    
+    /**
+     * Создание нового города
+     */
+    async createCity(cityData) {
+        return await this.request('/cities', {
+            method: 'POST',
+            body: JSON.stringify(cityData)
+        });
+    },
+    
+    /**
+     * Обновление города
+     */
+    async updateCity(id, cityData) {
+        return await this.request(`/cities/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(cityData)
+        });
+    },
+    
+    /**
+     * Удаление города
+     */
+    async deleteCity(id) {
+        return await this.request(`/cities/${id}`, {
+            method: 'DELETE'
+        });
     }
 };

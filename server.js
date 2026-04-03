@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const districtsRoutes = require('./routes/districts');
 const microdistrictsRoutes = require('./routes/microdistricts');
 const companiesRoutes = require('./routes/companies');
+const citiesRoutes = require('./routes/cities');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth/login, /api/auth/register',
       companies: '/api/companies',
+      cities: '/api/cities',
       districts: '/api/districts',
       microdistricts: '/api/microdistricts'
     }
@@ -49,6 +51,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companiesRoutes);
+app.use('/api/cities', citiesRoutes);
 app.use('/api/districts', districtsRoutes);
 app.use('/api/microdistricts', microdistrictsRoutes);
 

@@ -240,16 +240,43 @@
     <div id="mini-editor-modal" class="modal">
         <div class="modal-content">
             <span class="close mini-editor-close">&times;</span>
-            <h2>Добавить данные</h2>
+            <h2>Управление данными</h2>
+            
+            <!-- Выбор компании -->
             <div class="form-group">
                 <label for="mini-company">Компания</label>
                 <select id="mini-company">
                     <option value="">Загрузка...</option>
                 </select>
             </div>
+            
+            <!-- Выбор действия -->
             <div class="form-group">
-                <label>Что добавить?</label>
+                <label>Действие</label>
                 <div class="radio-group">
+                    <label>
+                        <input type="radio" name="mini-action" value="create" checked>
+                        Создать
+                    </label>
+                    <label>
+                        <input type="radio" name="mini-action" value="edit">
+                        Редактировать
+                    </label>
+                    <label>
+                        <input type="radio" name="mini-action" value="delete">
+                        Удалить
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Выбор типа объекта -->
+            <div class="form-group">
+                <label>Тип объекта</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="mini-type" value="city">
+                        Город
+                    </label>
                     <label>
                         <input type="radio" name="mini-type" value="district" checked>
                         Район
@@ -260,24 +287,40 @@
                     </label>
                 </div>
             </div>
-            <!-- Для выбора района при добавлении микрорайона -->
-            <div class="form-group" id="mini-district-select-wrapper" style="display:none;">
-                <label for="mini-district-select">Район</label>
-                <select id="mini-district-select"></select>
+            
+            <!-- Выбор существующего объекта (для редактирования/удаления) -->
+            <div class="form-group" id="mini-select-existing-wrapper" style="display:none;">
+                <label for="mini-select-existing">Выберите объект</label>
+                <select id="mini-select-existing">
+                    <option value="">Выберите...</option>
+                </select>
             </div>
-            <div class="form-group" id="mini-name-wrapper">
-                <label for="mini-name">Название</label>
-                <input type="text" id="mini-name" placeholder="Название района/микрорайона">
+            
+            <!-- Поля для создания/редактирования -->
+            <div id="mini-edit-fields">
+                <!-- Для выбора района при добавлении микрорайона -->
+                <div class="form-group" id="mini-district-select-wrapper" style="display:none;">
+                    <label for="mini-district-select">Район</label>
+                    <select id="mini-district-select"></select>
+                </div>
+                
+                <div class="form-group" id="mini-name-wrapper">
+                    <label for="mini-name">Название</label>
+                    <input type="text" id="mini-name" placeholder="Название">
+                </div>
+                
+                <div class="form-group" id="mini-color-wrapper">
+                    <label for="mini-color">Цвет</label>
+                    <input type="color" id="mini-color" value="#3388ff">
+                </div>
+                
+                <div class="form-group" id="mini-coords-wrapper">
+                    <label for="mini-coords">Координаты (lat,lng на строку)</label>
+                    <textarea id="mini-coords" rows="6" placeholder="41.31, 69.28&#10;41.32, 69.30&#10;..."></textarea>
+                </div>
             </div>
-            <div class="form-group" id="mini-color-wrapper">
-                <label for="mini-color">Цвет</label>
-                <input type="color" id="mini-color" value="#3388ff">
-            </div>
-            <div class="form-group" id="mini-coords-wrapper">
-                <label for="mini-coords">Координаты (lat,lng на строку; допустимы разделители перенос/; или список [lng,lat])</label>
-                <textarea id="mini-coords" rows="6" placeholder="41.31, 69.28\n41.32, 69.30\n..."></textarea>
-            </div>
-            <button id="mini-save" class="full-width">Добавить</button>
+            
+            <button id="mini-save" class="full-width">Выполнить</button>
         </div>
     </div>
 
