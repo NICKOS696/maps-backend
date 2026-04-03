@@ -1,0 +1,14 @@
+/* Стили для маркеров клиентов */
+.client-marker-icon {
+    z-index: 9999 !important;
+}
+
+/* Убираем стандартную тень от Leaflet */
+.client-marker-icon div {
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+/* Стиль при наведении */
+.client-marker-icon:hover {
+    cursor: pointer;
+}

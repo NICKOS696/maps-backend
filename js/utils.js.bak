@@ -1,0 +1,1185 @@
+/**
+ * Утилиты для работы с приложением
+ */
+
+const Utils = {
+    /**
+     * Генерирует случайный цвет в формате HEX
+     * @returns {string} Случайный цвет в формате HEX
+     */
+    getRandomColor: function() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    },
+    
+    /**
+     * Генерирует оттенок основного цвета
+     * @param {string} baseColor - Основной цвет в формате HEX
+     * @param {number} factor - Фактор осветления/затемнения (0-1)
+     * @returns {string} Новый цвет в формате HEX
+     */
+    getColorShade: function(baseColor, factor) {
+        // Конвертируем HEX в RGB
+        let r = parseInt(baseColor.substring(1, 3), 16);
+        let g = parseInt(baseColor.substring(3, 5), 16);
+        let b = parseInt(baseColor.substring(5, 7), 16);
+        
+        // Осветляем/затемняем
+        r = Math.round(r + (255 - r) * factor);
+        g = Math.round(g + (255 - g) * factor);
+        b = Math.round(b + (255 - b) * factor);
+        
+        // Конвертируем обратно в HEX
+        return '#' + 
+            ((1 << 24) + (r << 16) + (g << 8) + b)
+            .toString(16).slice(1);
+    },
+    
+    /**
+     * Сохраняет данные в localStorage
+     * @param {string} key - Ключ для сохранения
+     * @param {any} data - Данные для сохранения
+     */
+    saveToLocalStorage: function(key, data) {
+        try {
+            // Проверяем, является ли данные GeoJSON
+            if (data && data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+                // Создаем чистый GeoJSON без циклических ссылок
+                const cleanData = {
+                    type: 'FeatureCollection',
+                    features: []
+                };
+                
+                // Копируем только необходимые данные
+                data.features.forEach(feature => {
+                    if (feature.type && feature.geometry) {
+                        const cleanFeature = {
+                            type: feature.type,
+                            geometry: JSON.parse(JSON.stringify(feature.geometry)),
+                            properties: JSON.parse(JSON.stringify(feature.properties || {}))
+                        };
+                        cleanData.features.push(cleanFeature);
+                    }
+                });
+                
+                localStorage.setItem(key, JSON.stringify(cleanData));
+            } else {
+                // Для обычных данных используем стандартный подход
+                localStorage.setItem(key, JSON.stringify(data));
+            }
+            return true;
+        } catch (error) {
+            console.error('Ошибка при сохранении данных:', error);
+            return false;
+        }
+    },
+    
+    /**
+     * Загружает данные из localStorage
+     * @param {string} key - Ключ для загрузки
+     * @returns {any|null} Загруженные данные или null
+     */
+    loadFromLocalStorage: function(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Ошибка при загрузке данных:', error);
+            return null;
+        }
+    },
+    
+    /**
+     * Загружает GeoJSON файл
+     * @param {string} url - URL файла
+     * @returns {Promise} Promise с данными GeoJSON
+     */
+    loadGeoJSON: function(url) {
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .catch(error => {
+                console.error('Ошибка при загрузке GeoJSON:', error);
+                throw error;
+            });
+    },
+    
+    /**
+     * Сохраняет GeoJSON в файл
+     * @param {Object} geojson - GeoJSON объект
+     * @param {string} filename - Имя файла
+     */
+    saveGeoJSONToFile: function(geojson, filename) {
+        try {
+            // Создаем чистый GeoJSON без циклических ссылок
+            const cleanGeoJSON = {
+                type: "FeatureCollection",
+                features: []
+            };
+            
+            // Копируем только необходимые данные
+            if (geojson.features && Array.isArray(geojson.features)) {
+                geojson.features.forEach(feature => {
+                    if (feature.type && feature.geometry) {
+                        const cleanFeature = {
+                            type: feature.type,
+                            geometry: JSON.parse(JSON.stringify(feature.geometry)),
+                            properties: JSON.parse(JSON.stringify(feature.properties || {}))
+                        };
+                        cleanGeoJSON.features.push(cleanFeature);
+                    }
+                });
+            }
+            
+            const blob = new Blob([JSON.stringify(cleanGeoJSON, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Ошибка при сохранении GeoJSON:', error);
+            alert('Произошла ошибка при сохранении файла. Подробности в консоли.');
+        }
+    },
+    
+    /**
+     * Проверяет, находится ли точка внутри полигона
+     * @param {Array} point - Координаты точки [lat, lng]
+     * @param {Object} polygon - GeoJSON полигон
+     * @returns {boolean} true если точка внутри полигона
+     */
+    isPointInPolygon: function(point, polygon) {
+        try {
+            // Проверяем, что полигон и точка валидны
+            if (!polygon || !polygon.geometry || !polygon.geometry.coordinates || !Array.isArray(polygon.geometry.coordinates)) {
+                console.warn('Невалидный полигон:', polygon);
+                return false;
+            }
+            
+            if (!point || !Array.isArray(point) || point.length < 2) {
+                console.warn('Невалидная точка:', point);
+                return false;
+            }
+            
+            // Проверяем, что координаты полигона валидны
+            const coordinates = polygon.geometry.coordinates;
+            if (!coordinates.length || !coordinates[0] || !Array.isArray(coordinates[0])) {
+                console.warn('Невалидные координаты полигона:', coordinates);
+                return false;
+            }
+            
+            // Проверяем, что первая и последняя точки совпадают (замкнутый полигон)
+            const ring = coordinates[0];
+            if (ring.length < 4) { // Минимум 4 точки для замкнутого полигона
+                console.warn('Недостаточно точек в полигоне:', ring);
+                return false;
+            }
+            
+            // Проверяем, что первая и последняя точки совпадают
+            const first = ring[0];
+            const last = ring[ring.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) {
+                // Если не совпадают, создаем копию и замыкаем полигон
+                const fixedRing = [...ring, first];
+                const fixedCoordinates = [fixedRing];
+                const pt = turf.point([point[1], point[0]]);
+                const poly = turf.polygon(fixedCoordinates);
+                return turf.booleanPointInPolygon(pt, poly);
+            }
+            
+            // Создаем объекты turf
+            const pt = turf.point([point[1], point[0]]);
+            const poly = turf.polygon(coordinates);
+            return turf.booleanPointInPolygon(pt, poly);
+        } catch (error) {
+            console.error('Ошибка при проверке точки в полигоне:', error);
+            return false; // В случае ошибки считаем, что точка не внутри полигона
+        }
+    },
+    
+    /**
+     * Создает HTML-содержимое для всплывающего окна клиента
+     * @param {Object} client - Данные клиента
+     * @returns {string} HTML-содержимое
+     */
+    createClientPopupContent: function(client) {
+        return `
+            <div class="popup-content">
+                <div class="popup-title">${client.name}</div>
+                <div class="popup-info">
+                    <p>Координаты: ${client.lat.toFixed(6)}, ${client.lng.toFixed(6)}</p>
+                    <p>День посещения: ${this.getDayName(client.visitDay)}</p>
+                    <p>Территория: ${client.territory}</p>
+                    ${client.microdistrict ? `<p>Микрорайон: ${client.microdistrict}</p>` : ''}
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Возвращает название дня недели по номеру
+     * @param {number} dayNumber - Номер дня (1-7)
+     * @returns {string} Название дня недели
+     */
+    getDayName: function(dayNumber) {
+        const days = [
+            'Понедельник', 'Вторник', 'Среда', 
+            'Четверг', 'Пятница', 'Суббота', 'Воскресенье'
+        ];
+        return days[dayNumber - 1] || 'Неизвестно';
+    },
+    
+    /**
+     * Вычисляет расстояние между двумя точками в метрах
+     * @param {Array} point1 - Координаты первой точки [lat, lng]
+     * @param {Array} point2 - Координаты второй точки [lat, lng]
+     * @returns {number} Расстояние в метрах
+     */
+    calculateDistance: function(point1, point2) {
+        const from = turf.point([point1[1], point1[0]]);
+        const to = turf.point([point2[1], point2[0]]);
+        return turf.distance(from, to, { units: 'kilometers' }) * 1000;
+    },
+    
+    /**
+     * Решает задачу коммивояжера (TSP) для набора точек
+     * @param {Array} points - Массив точек с координатами
+     * @returns {Array} Оптимальный порядок посещения точек
+     */
+    solveTSP: function(points) {
+        if (points.length <= 2) return [...Array(points.length).keys()];
+        
+        // Создаем матрицу расстояний
+        const n = points.length;
+        const distances = Array(n).fill().map(() => Array(n).fill(0));
+        
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                if (i !== j) {
+                    distances[i][j] = this.calculateDistance(
+                        [points[i].lat, points[i].lng],
+                        [points[j].lat, points[j].lng]
+                    );
+                }
+            }
+        }
+        
+        // Жадный алгоритм для TSP
+        const visited = Array(n).fill(false);
+        const route = [0]; // Начинаем с первой точки
+        visited[0] = true;
+        
+        for (let i = 1; i < n; i++) {
+            let lastPoint = route[route.length - 1];
+            let minDist = Infinity;
+            let minIndex = -1;
+            
+            for (let j = 0; j < n; j++) {
+                if (!visited[j] && distances[lastPoint][j] < minDist) {
+                    minDist = distances[lastPoint][j];
+                    minIndex = j;
+                }
+            }
+            
+            route.push(minIndex);
+            visited[minIndex] = true;
+        }
+        
+        return route;
+    },
+    
+    /**
+     * Показывает предварительный просмотр маршрута перед экспортом
+     * @param {Array} route - Маршрут (массив клиентов)
+     * @param {string} districtName - Название района
+     * @param {string} microdistrictName - Название микрорайона
+     */
+    previewRouteExport: function(route, districtName, microdistrictName) {
+        // Создаем модальное окно для предварительного просмотра
+        const previewModal = document.createElement('div');
+        previewModal.className = 'modal';
+        previewModal.style.display = 'block';
+        previewModal.style.position = 'fixed';
+        previewModal.style.zIndex = '1000';
+        previewModal.style.left = '0';
+        previewModal.style.top = '0';
+        previewModal.style.width = '100%';
+        previewModal.style.height = '100%';
+        previewModal.style.overflow = 'auto';
+        previewModal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+        
+        // Создаем содержимое модального окна
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        modalContent.style.backgroundColor = '#fefefe';
+        modalContent.style.margin = '5% auto';
+        modalContent.style.padding = '20px';
+        modalContent.style.border = '1px solid #888';
+        modalContent.style.width = '80%';
+        modalContent.style.maxWidth = '1000px';
+        modalContent.style.maxHeight = '80vh';
+        modalContent.style.overflow = 'auto';
+        modalContent.style.position = 'relative';
+        
+        // Добавляем кнопку закрытия
+        const closeBtn = document.createElement('span');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.color = '#aaa';
+        closeBtn.style.float = 'right';
+        closeBtn.style.fontSize = '28px';
+        closeBtn.style.fontWeight = 'bold';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.onclick = function() {
+            document.body.removeChild(previewModal);
+        };
+        
+        // Создаем заголовок
+        const header = document.createElement('div');
+        header.style.marginBottom = '20px';
+        header.innerHTML = `
+            <h2 style="margin-top: 0;">Предварительный просмотр маршрута</h2>
+            <p>Район: <strong>${districtName}</strong>, Микрорайон: <strong>${microdistrictName}</strong></p>
+            <p>Всего точек: <strong>${route.length}</strong></p>
+        `;
+        
+        // Создаем контейнер для предварительного просмотра
+        const previewContainer = document.createElement('div');
+        previewContainer.style.display = 'flex';
+        previewContainer.style.flexDirection = 'row';
+        previewContainer.style.gap = '20px';
+        previewContainer.style.height = '70vh'; // Высота контейнера 70% от высоты экрана
+        
+        // Создаем контейнер для карты (левая часть)
+        const mapPreviewContainer = document.createElement('div');
+        mapPreviewContainer.style.flex = '1 1 70%'; // Карта занимает 70% ширины
+        mapPreviewContainer.style.border = '1px solid #ddd';
+        mapPreviewContainer.style.borderRadius = '5px';
+        mapPreviewContainer.style.overflow = 'hidden';
+        mapPreviewContainer.style.display = 'flex';
+        mapPreviewContainer.style.flexDirection = 'column';
+        
+        const mapHeader = document.createElement('h3');
+        mapHeader.innerText = 'Карта маршрута:';
+        mapHeader.style.margin = '10px';
+        mapHeader.style.padding = '0';
+        mapPreviewContainer.appendChild(mapHeader);
+        
+        // Создаем див для карты
+        const mapDiv = document.createElement('div');
+        mapDiv.id = 'preview-map';
+        mapDiv.style.width = '100%';
+        mapDiv.style.flex = '1'; // Заполняет все доступное пространство
+        mapPreviewContainer.appendChild(mapDiv);
+        
+        // Создаем таблицу с клиентами (правая часть)
+        const tableContainer = document.createElement('div');
+        tableContainer.style.flex = '1 1 30%'; // Список занимает 30% ширины
+        tableContainer.style.overflowY = 'auto'; // Добавляем прокрутку для длинных списков
+        tableContainer.style.padding = '0 10px';
+        tableContainer.style.display = 'flex';
+        tableContainer.style.flexDirection = 'column';
+        
+        const tableHeader = document.createElement('h3');
+        tableHeader.innerText = 'Порядок посещения клиентов:';
+        tableHeader.style.margin = '10px 0';
+        tableContainer.appendChild(tableHeader);
+        
+        // Создаем контейнер для списка клиентов в два столбца
+        const clientListContainer = document.createElement('div');
+        clientListContainer.style.display = 'flex';
+        clientListContainer.style.flexWrap = 'wrap';
+        clientListContainer.style.gap = '10px';
+        clientListContainer.style.flex = '1';
+        clientListContainer.style.overflowY = 'auto';
+        
+        // Рассчитываем количество клиентов в каждом столбце
+        const clientsPerColumn = Math.ceil(route.length / 2);
+        
+        // Создаем первый столбец
+        const column1 = document.createElement('div');
+        column1.style.flex = '1';
+        column1.style.minWidth = '120px';
+        
+        // Создаем второй столбец
+        const column2 = document.createElement('div');
+        column2.style.flex = '1';
+        column2.style.minWidth = '120px';
+        
+        // Заполняем первый столбец
+        column1.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 60px;">Порядок</th>
+                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Заполняем второй столбец
+        column2.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 60px;">Порядок</th>
+                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        // Заполняем столбцы данными
+        route.forEach((client, index) => {
+            const bgColor = index % 2 === 0 ? 'white' : '#f2f2f2';
+            const column = index < clientsPerColumn ? column1 : column2;
+            
+            column.innerHTML += `
+                <tr style="background-color: ${bgColor};">
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${index + 1}</td>
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${client.name}</td>
+                </tr>
+            `;
+        });
+        
+        // Закрываем теги таблиц
+        column1.innerHTML += `
+                </tbody>
+            </table>
+        `;
+        
+        column2.innerHTML += `
+                </tbody>
+            </table>
+        `;
+        
+        // Добавляем столбцы в контейнер
+        clientListContainer.appendChild(column1);
+        clientListContainer.appendChild(column2);
+        
+        // Добавляем контейнер со столбцами в таблицу
+        tableContainer.appendChild(clientListContainer);
+        
+        // Создаем кнопки для экспорта и отмены
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.style.marginTop = '20px';
+        buttonsContainer.style.textAlign = 'center';
+        
+        const exportButton = document.createElement('button');
+        exportButton.innerText = 'Экспортировать';
+        exportButton.style.padding = '10px 20px';
+        exportButton.style.backgroundColor = '#3498db';
+        exportButton.style.color = 'white';
+        exportButton.style.border = 'none';
+        exportButton.style.borderRadius = '5px';
+        exportButton.style.cursor = 'pointer';
+        exportButton.style.marginRight = '10px';
+        exportButton.onclick = () => {
+            document.body.removeChild(previewModal);
+            this._saveRouteToPDF(route, districtName, microdistrictName);
+        };
+        
+        const cancelButton = document.createElement('button');
+        cancelButton.innerText = 'Отмена';
+        cancelButton.style.padding = '10px 20px';
+        cancelButton.style.backgroundColor = '#e74c3c';
+        cancelButton.style.color = 'white';
+        cancelButton.style.border = 'none';
+        cancelButton.style.borderRadius = '5px';
+        cancelButton.style.cursor = 'pointer';
+        cancelButton.onclick = () => {
+            document.body.removeChild(previewModal);
+        };
+        
+        buttonsContainer.appendChild(exportButton);
+        buttonsContainer.appendChild(cancelButton);
+        
+        // Собираем все элементы вместе
+        previewContainer.appendChild(mapPreviewContainer);
+        previewContainer.appendChild(tableContainer);
+        
+        modalContent.appendChild(closeBtn);
+        modalContent.appendChild(header);
+        modalContent.appendChild(previewContainer);
+        modalContent.appendChild(buttonsContainer);
+        
+        previewModal.appendChild(modalContent);
+        document.body.appendChild(previewModal);
+        
+        // Создаем карту для предварительного просмотра
+        setTimeout(() => {
+            const previewMap = L.map('preview-map', {
+                center: [41.2995, 69.2401], // Ташкент
+                zoom: 12
+            });
+            
+            // Добавляем слой карты
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(previewMap);
+            
+            // Добавляем маркеры и маршрут
+            const markers = [];
+            const latlngs = [];
+            
+            route.forEach((client, index) => {
+                const latlng = [client.lat, client.lng];
+                latlngs.push(latlng);
+                
+                // Создаем маркер с номером
+                const icon = L.divIcon({
+                    className: 'route-marker',
+                    html: `<div style="background-color: #3498db; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${index + 1}</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                const marker = L.marker(latlng, { icon: icon }).addTo(previewMap);
+                marker.bindPopup(`<b>№${index + 1}: ${client.name}</b><br>Адрес: ${client.address || 'Не указан'}`);
+                markers.push(marker);
+            });
+            
+            // Добавляем линию маршрута
+            if (latlngs.length > 1) {
+                const routeLine = L.polyline(latlngs, { color: '#3498db', weight: 3 }).addTo(previewMap);
+                
+                // Устанавливаем границы карты по маршруту
+                previewMap.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            } else if (latlngs.length === 1) {
+                previewMap.setView(latlngs[0], 15);
+            }
+        }, 100);
+    },
+    
+    /**
+     * Показывает предварительный просмотр маршрута
+     * @param {Array} route - Маршрут (массив клиентов)
+     * @param {string} districtName - Название района
+     * @param {string} microdistrictName - Название микрорайона
+     */
+    showRoutePreview: function(route, districtName, microdistrictName) {
+        // Удаляем предыдущее модальное окно, если оно есть
+        const oldModal = document.querySelector('.route-preview-modal');
+        if (oldModal) {
+            document.body.removeChild(oldModal);
+        }
+        
+        // Создаем модальное окно
+        const modal = document.createElement('div');
+        modal.className = 'route-preview-modal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        modal.style.zIndex = '1000';
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        
+        // Создаем контейнер для содержимого
+        const container = document.createElement('div');
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.backgroundColor = 'white';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.position = 'relative';
+        
+        // Создаем заголовок
+        const header = document.createElement('div');
+        header.style.padding = '10px';
+        header.style.borderBottom = '1px solid #ddd';
+        header.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; font-size: 18px;">Предварительный просмотр маршрута | Район: ${districtName}, Микрорайон: ${microdistrictName} | Точек: ${route.length}</h2>
+                <span class="close-btn" style="font-size: 24px; cursor: pointer;">&times;</span>
+            </div>
+        `;
+        
+        // Создаем контейнер для карты и списка
+        const content = document.createElement('div');
+        content.style.display = 'flex';
+        content.style.flex = '1';
+        content.style.overflow = 'hidden';
+        
+        // Создаем карту
+        const mapContainer = document.createElement('div');
+        mapContainer.style.flex = '1';
+        mapContainer.style.minWidth = '0';
+        mapContainer.style.padding = '10px';
+        
+        const mapDiv = document.createElement('div');
+        mapDiv.id = 'preview-map';
+        mapDiv.style.width = '100%';
+        mapDiv.style.height = '100%';
+        mapDiv.style.border = '1px solid #ddd';
+        mapContainer.appendChild(mapDiv);
+        
+        // Создаем список клиентов
+        const listContainer = document.createElement('div');
+        listContainer.style.width = '400px';
+        listContainer.style.padding = '10px';
+        listContainer.style.borderLeft = '1px solid #ddd';
+        listContainer.style.display = 'flex';
+        listContainer.style.flexDirection = 'column';
+        
+        const listHeader = document.createElement('h3');
+        listHeader.style.margin = '0 0 10px 0';
+        listHeader.style.fontSize = '16px';
+        listHeader.textContent = 'Порядок посещения клиентов:';
+        listContainer.appendChild(listHeader);
+        
+        const listContent = document.createElement('div');
+        listContent.style.flex = '1';
+        listContent.style.overflowY = 'auto';
+        
+        // Создаем контейнер для двух колонок
+        const columnsContainer = document.createElement('div');
+        columnsContainer.style.display = 'flex';
+        columnsContainer.style.gap = '10px';
+        
+        // Рассчитываем количество клиентов в каждом столбце
+        const clientsPerColumn = Math.ceil(route.length / 2);
+        
+        // Создаем первую колонку
+        const column1 = document.createElement('div');
+        column1.style.flex = '1';
+        column1.style.minWidth = '0';
+        
+        // Создаем таблицу для первой колонки
+        const table1 = document.createElement('table');
+        table1.style.width = '100%';
+        table1.style.borderCollapse = 'collapse';
+        table1.style.fontSize = '12px';
+        table1.style.tableLayout = 'fixed';
+        
+        // Создаем заголовок таблицы для первой колонки
+        const thead1 = document.createElement('thead');
+        thead1.innerHTML = `
+            <tr style="background-color: #3498db; color: white;">
+                <th style="padding: 4px; text-align: center; border: 1px solid #ddd; width: 50px;">№</th>
+                <th style="padding: 4px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+            </tr>
+        `;
+        table1.appendChild(thead1);
+        
+        // Создаем тело таблицы для первой колонки
+        const tbody1 = document.createElement('tbody');
+        for (let i = 0; i < clientsPerColumn; i++) {
+            if (i < route.length) {
+                const client = route[i];
+                const row = document.createElement('tr');
+                row.style.backgroundColor = i % 2 === 0 ? 'white' : '#f2f2f2';
+                
+                const cellNum = document.createElement('td');
+                cellNum.style.padding = '4px';
+                cellNum.style.textAlign = 'center';
+                cellNum.style.border = '1px solid #ddd';
+                cellNum.textContent = i + 1;
+                
+                const cellName = document.createElement('td');
+                cellName.style.padding = '4px';
+                cellName.style.textAlign = 'left';
+                cellName.style.border = '1px solid #ddd';
+                cellName.style.overflow = 'hidden';
+                cellName.style.textOverflow = 'ellipsis';
+                cellName.style.whiteSpace = 'nowrap';
+                cellName.textContent = client.name;
+                
+                row.appendChild(cellNum);
+                row.appendChild(cellName);
+                tbody1.appendChild(row);
+            }
+        }
+        table1.appendChild(tbody1);
+        column1.appendChild(table1);
+        
+        // Создаем вторую колонку
+        const column2 = document.createElement('div');
+        column2.style.flex = '1';
+        column2.style.minWidth = '0';
+        
+        // Создаем таблицу для второй колонки
+        const table2 = document.createElement('table');
+        table2.style.width = '100%';
+        table2.style.borderCollapse = 'collapse';
+        table2.style.fontSize = '12px';
+        table2.style.tableLayout = 'fixed';
+        
+        // Создаем заголовок таблицы для второй колонки
+        const thead2 = document.createElement('thead');
+        thead2.innerHTML = `
+            <tr style="background-color: #3498db; color: white;">
+                <th style="padding: 4px; text-align: center; border: 1px solid #ddd; width: 50px;">№</th>
+                <th style="padding: 4px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+            </tr>
+        `;
+        table2.appendChild(thead2);
+        
+        // Создаем тело таблицы для второй колонки
+        const tbody2 = document.createElement('tbody');
+        for (let i = clientsPerColumn; i < route.length; i++) {
+            const client = route[i];
+            const row = document.createElement('tr');
+            row.style.backgroundColor = i % 2 === 0 ? 'white' : '#f2f2f2';
+            
+            const cellNum = document.createElement('td');
+            cellNum.style.padding = '4px';
+            cellNum.style.textAlign = 'center';
+            cellNum.style.border = '1px solid #ddd';
+            cellNum.textContent = i + 1;
+            
+            const cellName = document.createElement('td');
+            cellName.style.padding = '4px';
+            cellName.style.textAlign = 'left';
+            cellName.style.border = '1px solid #ddd';
+            cellName.style.overflow = 'hidden';
+            cellName.style.textOverflow = 'ellipsis';
+            cellName.style.whiteSpace = 'nowrap';
+            cellName.textContent = client.name;
+            
+            row.appendChild(cellNum);
+            row.appendChild(cellName);
+            tbody2.appendChild(row);
+        }
+        table2.appendChild(tbody2);
+        column2.appendChild(table2);
+        
+        // Добавляем колонки в контейнер
+        columnsContainer.appendChild(column1);
+        columnsContainer.appendChild(column2);
+        
+        // Добавляем контейнер колонок в список
+        listContent.appendChild(columnsContainer);
+        listContainer.appendChild(listContent);
+        
+        // Создаем кнопки
+        const buttons = document.createElement('div');
+        buttons.style.padding = '10px';
+        buttons.style.borderTop = '1px solid #ddd';
+        buttons.style.textAlign = 'center';
+        
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Экспортировать';
+        exportBtn.style.padding = '8px 16px';
+        exportBtn.style.backgroundColor = '#3498db';
+        exportBtn.style.color = 'white';
+        exportBtn.style.border = 'none';
+        exportBtn.style.borderRadius = '4px';
+        exportBtn.style.cursor = 'pointer';
+        exportBtn.style.marginRight = '10px';
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Отмена';
+        cancelBtn.style.padding = '8px 16px';
+        cancelBtn.style.backgroundColor = '#e74c3c';
+        cancelBtn.style.color = 'white';
+        cancelBtn.style.border = 'none';
+        cancelBtn.style.borderRadius = '4px';
+        cancelBtn.style.cursor = 'pointer';
+        
+        buttons.appendChild(exportBtn);
+        buttons.appendChild(cancelBtn);
+        
+        // Собираем все вместе
+        content.appendChild(mapContainer);
+        content.appendChild(listContainer);
+        
+        container.appendChild(header);
+        container.appendChild(content);
+        container.appendChild(buttons);
+        
+        modal.appendChild(container);
+        document.body.appendChild(modal);
+        
+        // Добавляем обработчики событий
+        const closeBtn = modal.querySelector('.close-btn');
+        closeBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        
+        exportBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            // Вызываем функцию экспорта
+            this._saveRouteToPDF(route, districtName, microdistrictName);
+        });
+        
+        // Инициализируем карту
+        setTimeout(() => {
+            const map = L.map('preview-map', {
+                center: [41.2995, 69.2401],
+                zoom: 12
+            });
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            const markers = [];
+            const latlngs = [];
+            
+            route.forEach((client, index) => {
+                const latlng = [client.lat, client.lng];
+                latlngs.push(latlng);
+                
+                const icon = L.divIcon({
+                    className: 'route-marker',
+                    html: `<div style="background-color: #3498db; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${index + 1}</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                const marker = L.marker(latlng, { icon: icon }).addTo(map);
+                marker.bindPopup(`<b>№${index + 1}: ${client.name}</b>`);
+                markers.push(marker);
+            });
+            
+            if (latlngs.length > 1) {
+                const routeLine = L.polyline(latlngs, { color: '#3498db', weight: 3 }).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            } else if (latlngs.length === 1) {
+                map.setView(latlngs[0], 15);
+            }
+        }, 100);
+        
+        return modal;
+    },
+    
+    /**
+     * Экспортирует маршрут в PDF-файл для печати
+     * @param {Array} route - Маршрут (массив клиентов)
+     * @param {string} districtName - Название района
+     * @param {string} microdistrictName - Название микрорайона
+     */
+    exportRouteToPDF: function(route, districtName, microdistrictName) {
+        // Вызываем предварительный просмотр маршрута
+        this.showRoutePreview(route, districtName, microdistrictName);
+    },
+    
+    /**
+     * Сохраняет маршрут в PDF-файл
+     * @private
+     */
+    _saveRouteToPDF: function(route, districtName, microdistrictName) {
+        try {
+            // Создаем временный div для рендеринга содержимого
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+            
+            // Рассчитываем количество клиентов в каждом столбце
+            const clientsPerColumn = Math.ceil(route.length / 2);
+            
+            // Создаем содержимое для печати - двухколоночный макет
+            tempDiv.innerHTML = `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background-color: white;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h1 style="margin: 0; font-size: 24px; color: #2c3e50;">Маршрут посещения клиентов</h1>
+                        <p style="margin: 5px 0 0 0; color: #7f8c8d;">Район: ${districtName}, Микрорайон: ${microdistrictName}</p>
+                        <p style="margin: 5px 0 0 0; color: #7f8c8d;">Всего точек: ${route.length}</p>
+                    </div>
+                    
+                    <div style="display: flex; gap: 20px;">
+                        <div id="map-container" style="flex: 7; margin-bottom: 20px;">
+                            <h2 style="margin-top: 0; color: #3498db; font-size: 18px;">Карта маршрута:</h2>
+                            <div id="map-screenshot" style="width: 100%; height: 700px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden;"></div>
+                        </div>
+                        
+                        <div id="route-table" style="flex: 3; margin-bottom: 20px; min-width: 300px; max-width: 400px;">
+                            <h2 style="margin-top: 0; color: #3498db; font-size: 18px;">Порядок посещения клиентов:</h2>
+                            <div style="display: flex; gap: 10px; overflow: auto;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px;">
+                                        <thead>
+                                            <tr style="background-color: #3498db; color: white;">
+                                                <th style="padding: 4px; text-align: center; border: 1px solid #ddd; width: 50px;">№</th>
+                                                <th style="padding: 4px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+            
+            // Закрываем первую таблицу и начинаем вторую
+            tempDiv.innerHTML += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px;">
+                                        <thead>
+                                            <tr style="background-color: #3498db; color: white;">
+                                                <th style="padding: 4px; text-align: center; border: 1px solid #ddd; width: 50px;">№</th>
+                                                <th style="padding: 4px; text-align: left; border: 1px solid #ddd;">Название клиента</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+            `;
+            
+            // Добавляем клиентов во второй столбец
+            for (let i = clientsPerColumn; i < route.length; i++) {
+                const client = route[i];
+                const bgColor = i % 2 === 0 ? 'white' : '#f2f2f2';
+                tempDiv.innerHTML += `
+                    <tr style="background-color: ${bgColor};">
+                        <td style="padding: 4px; text-align: center; border: 1px solid #ddd;">${i + 1}</td>
+                        <td style="padding: 4px; text-align: left; border: 1px solid #ddd; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${client.name}</td>
+                    </tr>
+                `;
+            }
+            
+            // Закрываем вторую таблицу и завершаем HTML
+            tempDiv.innerHTML += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; color: #7f8c8d; font-size: 12px; margin-top: 20px;">
+                        Сгенерировано приложением "Карта Ташкента" ${new Date().toLocaleDateString()}
+                    </div>
+                </div>
+            `;
+            
+            // Сначала сделаем скриншот карты
+            const mapContainer = document.getElementById('map');
+            
+            html2canvas(mapContainer, {
+                backgroundColor: 'white',
+                scale: 2, // Увеличиваем масштаб для лучшего качества
+                logging: false,
+                allowTaint: true,
+                useCORS: true,
+                imageTimeout: 5000, // Увеличиваем таймаут для загрузки изображений
+                ignoreElements: (element) => {
+                    // Игнорируем ненужные элементы управления на карте
+                    return element.classList && (
+                        element.classList.contains('leaflet-control-container') ||
+                        element.classList.contains('leaflet-control-zoom') ||
+                        element.classList.contains('leaflet-control-attribution')
+                    );
+                }
+            }).then(mapCanvas => {
+                // Добавляем скриншот карты в наш див
+                const mapScreenshot = tempDiv.querySelector('#map-screenshot');
+                mapScreenshot.innerHTML = '';
+                mapScreenshot.appendChild(mapCanvas);
+                
+                // Создаем PDF
+                setTimeout(() => {
+                    html2canvas(tempDiv, {
+                        backgroundColor: 'white',
+                        scale: 1,
+                        logging: false,
+                        allowTaint: true,
+                        useCORS: true
+                    }).then(canvas => {
+                        // Создаем PDF в альбомной ориентации
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF({
+                            orientation: 'landscape',
+                            unit: 'mm',
+                            format: 'a4'
+                        });
+                        
+                        // Добавляем изображение на страницу PDF
+                        const imgData = canvas.toDataURL('image/png');
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+                        const imgWidth = canvas.width;
+                        const imgHeight = canvas.height;
+                        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+                        const imgX = (pdfWidth - imgWidth * ratio) / 2;
+                        const imgY = (pdfHeight - imgHeight * ratio) / 2;
+                        
+                        pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+                        
+                        // Сохраняем PDF
+                        pdf.save(`Маршрут_${districtName}_${microdistrictName}_${new Date().toISOString().split('T')[0]}.pdf`);
+                        
+                        // Удаляем временный div
+                        document.body.removeChild(tempDiv);
+                        
+                        // Показываем уведомление об успешном экспорте
+                        alert('Маршрут успешно экспортирован в PDF');
+                    }).catch(error => {
+                        console.error('Ошибка при создании изображения:', error);
+                        alert('Произошла ошибка при экспорте маршрута. Попробуйте еще раз.');
+                        document.body.removeChild(tempDiv);
+                    });
+                }, 500);
+            }).catch(error => {
+                console.error('Ошибка при создании скриншота карты:', error);
+                alert('Произошла ошибка при экспорте маршрута. Попробуйте еще раз.');
+                document.body.removeChild(tempDiv);
+            });
+        } catch (error) {
+            console.error('Ошибка при экспорте маршрута:', error);
+            alert('Произошла ошибка при экспорте маршрута. Подробности в консоли.');
+        }
+    },
+    
+    /**
+     * Создает пустой GeoJSON FeatureCollection
+     * @returns {Object} Пустой GeoJSON FeatureCollection
+     */
+    createEmptyGeoJSON: function() {
+        return {
+            "type": "FeatureCollection",
+            "features": []
+        };
+    },
+    
+    /**
+     * Создает GeoJSON Feature из координат полигона
+            tempDiv.innerHTML += `
+                <tr style="background-color: ${bgColor};">
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${i + 1}</td>
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${client.name}</td>
+                </tr>
+            `;
+        }
+        
+        // Закрываем вторую таблицу и завершаем HTML
+        tempDiv.innerHTML += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; color: #7f8c8d; font-size: 12px; margin-top: 20px;">
+                        Сгенерировано приложением "Карта Ташкента" ${new Date().toLocaleDateString()}
+                    </div>
+                </div>
+            `;
+        
+        // Сначала сделаем скриншот карты
+        const mapContainer = document.getElementById('map');
+        
+        html2canvas(mapContainer, {
+            backgroundColor: 'white',
+            scale: 2, // Увеличиваем масштаб для лучшего качества
+            logging: false,
+            allowTaint: true,
+            useCORS: true,
+            imageTimeout: 5000, // Увеличиваем таймаут для загрузки изображений
+            ignoreElements: (element) => {
+                // Игнорируем ненужные элементы управления на карте
+                return element.classList && (
+                    element.classList.contains('leaflet-control-container') ||
+                    element.classList.contains('leaflet-control-zoom') ||
+                    element.classList.contains('leaflet-control-attribution')
+                );
+            }
+        }).then(mapCanvas => {
+            // Добавляем скриншот карты в наш див
+            const mapScreenshot = tempDiv.querySelector('#map-screenshot');
+            mapScreenshot.innerHTML = '';
+            mapScreenshot.appendChild(mapCanvas);
+            
+            // Теперь делаем скриншот всего дива
+            html2canvas(tempDiv, {
+                backgroundColor: 'white',
+                scale: 2, // Увеличиваем масштаб для лучшего качества
+                logging: false,
+                allowTaint: true,
+                useCORS: true,
+                imageTimeout: 5000 // Увеличиваем таймаут для загрузки изображений
+            }).then(canvas => {
+                // Создаем PDF документ
+                const { jsPDF } = window.jspdf;
+                
+                // Создаем PDF в формате A4 горизонтальный
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
+                // Получаем размеры страницы A4 в пикселях (при 72 DPI)
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                
+                // Получаем размеры изображения
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                
+                // Вычисляем масштаб для размещения на странице
+                const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+                
+                // Получаем данные изображения
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                
+                // Добавляем изображение в PDF
+                pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, imgHeight * ratio);
+                
+                // Сохраняем PDF
+                pdf.save(`Маршрут_${districtName}_${microdistrictName}.pdf`);
+                
+                // Удаляем временный див
+                document.body.removeChild(tempDiv);
+                
+                // Показываем уведомление об успешном экспорте
+                alert('Маршрут успешно экспортирован в PDF');
+            }).catch(error => {
+                console.error('Ошибка при создании изображения:', error);
+                alert('Произошла ошибка при экспорте маршрута. Попробуйте еще раз.');
+                document.body.removeChild(tempDiv);
+            });
+        }).catch(error => {
+            console.error('Ошибка при создании скриншота карты:', error);
+            alert('Произошла ошибка при экспорте маршрута. Попробуйте еще раз.');
+            document.body.removeChild(tempDiv);
+        });
+        } catch (error) {
+            console.error('Ошибка при экспорте маршрута:', error);
+            alert('Произошла ошибка при экспорте маршрута. Подробности в консоли.');
+        }
+    },
+    
+    /**
+     * Создает пустой GeoJSON FeatureCollection
+     * @returns {Object} Пустой GeoJSON FeatureCollection
+     */
+    createEmptyGeoJSON: function() {
+        return {
+            "type": "FeatureCollection",
+            "features": []
+        };
+    },
+    
+    /**
+     * Создает GeoJSON Feature из координат полигона
+     * @param {Array} coordinates - Координаты полигона
+     * @param {Object} properties - Свойства объекта
+     * @returns {Object} GeoJSON Feature
+     */
+    createGeoJSONFeature: function(coordinates, properties) {
+        return {
+            "type": "Feature",
+            "properties": properties || {},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": coordinates
+            }
+        };
+    }
+};

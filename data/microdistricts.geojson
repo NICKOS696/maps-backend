@@ -1,0 +1,89 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Мирабад-1",
+        "color": "#5dade2",
+        "type": "microdistrict",
+        "district": "Мирабадский"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [69.2701, 41.2901],
+            [69.2801, 41.2901],
+            [69.2801, 41.3001],
+            [69.2701, 41.3001],
+            [69.2701, 41.2901]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Мирабад-2",
+        "color": "#85c1e9",
+        "type": "microdistrict",
+        "district": "Мирабадский"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [69.2801, 41.2901],
+            [69.2901, 41.2901],
+            [69.2901, 41.3001],
+            [69.2801, 41.3001],
+            [69.2801, 41.2901]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Юнусабад-1",
+        "color": "#ed7669",
+        "type": "microdistrict",
+        "district": "Юнусабадский"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [69.2501, 41.3201],
+            [69.2601, 41.3201],
+            [69.2601, 41.3301],
+            [69.2501, 41.3301],
+            [69.2501, 41.3201]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Чиланзар-1",
+        "color": "#58d68d",
+        "type": "microdistrict",
+        "district": "Чиланзарский"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [69.2101, 41.2601],
+            [69.2201, 41.2601],
+            [69.2201, 41.2701],
+            [69.2101, 41.2701],
+            [69.2101, 41.2601]
+          ]
+        ]
+      }
+    }
+  ]
+}

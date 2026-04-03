@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конструктор маршрутов - Планирование и управление</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <!-- html2canvas для конвертации HTML в изображение -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF для создания PDF-файлов -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Наши стили -->
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/client-markers.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Конструктор маршрутов - Планирование и управление</h1>
+        </header>
+        
+        <div class="main-content">
+            <div class="left-sidebar">
+                <div class="control-panel">
+                    <h2>Управление</h2>
+                    
+                    <div class="panel-section">
+                        <button id="show-instructions" class="full-width">Инструкция</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="fill-mode-toggle" checked>
+                            Режим заполнения
+                        </label>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>Компания и город</h3>
+                        <select id="company-select">
+                            <option value="">Выберите компанию</option>
+                        </select>
+                        <select id="city-select" style="margin-top:8px;">
+                            <option value="">Выберите город</option>
+                        </select>
+                        <button id="open-mini-editor" class="full-width" style="margin-top:8px;">Мини-редактор</button>
+                        <button id="save-company-data" class="full-width" style="margin-top:8px;">Сохранить файл компании</button>
+                        <button id="load-company-file" class="full-width" style="margin-top:8px;">Загрузить файл компании</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>Районы и микрорайоны</h3>
+                        <button id="load-districts">Загрузить районы</button>
+                        <button id="clear-map">Очистить карту</button>
+                        <button id="load-microdistricts">Загрузить микрорайоны</button>
+                        <button id="toggle-edit-mode">Режим редактирования</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>Клиенты</h3>
+                        <div class="file-upload">
+                            <label for="client-upload">Загрузить Excel с клиентами</label>
+                            <input type="file" id="client-upload" accept=".xlsx,.xls">
+                        </div>
+                        <button id="clear-clients">Очистить список клиентов</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>Маршруты</h3>
+                        <div class="route-controls">
+                            <select id="district-select">
+                                <option value="">Выберите район</option>
+                            </select>
+                            <select id="microdistrict-select">
+                                <option value="">Выберите микрорайон</option>
+                            </select>
+                            <input type="hidden" id="visit-day-select" value="">
+                            <button id="build-route">Построить маршрут</button>
+                            <button id="export-route">Экспорт с картой PNG</button>
+                            <button id="export-route-excel">Экспорт в Excel</button>
+                            <button id="export-route-html">Экспорт в HTML</button>
+                            <button id="clear-storage">Очистить данные</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <h3>Слои</h3>
+                        <div id="layers-control">
+                            <!-- Здесь будут динамически добавляться чекбоксы для слоев -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="map"></div>
+
+            <div class="right-sidebar">
+                <div class="client-list">
+                    <h2>Список клиентов</h2>
+                    <div id="clients-container">
+                        <!-- Здесь будет отображаться список клиентов -->
+                        <p class="empty-message">Загрузите файл с клиентами</p>
+                    </div>
+                </div>
+
+                <div class="route-list">
+                    <h2>Маршрут</h2>
+                    <div id="route-container">
+                        <!-- Здесь будет отображаться маршрут -->
+                        <p class="empty-message">Постройте маршрут, чтобы увидеть его здесь</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Приложение для работы с картой Ташкента © 2025</p>
+        </footer>
+    </div>
+
+    <!-- Модальное окно для редактирования свойств района/микрорайона -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Редактировать</h2>
+            <div class="form-group">
+                <label for="edit-name">Название:</label>
+                <input type="text" id="edit-name">
+            </div>
+            <div class="form-group">
+                <label for="edit-color">Цвет:</label>
+                <input type="color" id="edit-color">
+            </div>
+            <div class="form-group">
+                <label>Тип объекта:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="object-type" value="district" checked>
+                        Район
+                    </label>
+                    <label>
+                        <input type="radio" name="object-type" value="microdistrict">
+                        Микрорайон
+                    </label>
+                </div>
+            </div>
+            <button id="save-edit">Сохранить</button>
+            <button id="delete-item" class="danger">Удалить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно для инструкции -->
+    <div id="instructions-modal" class="modal">
+        <div class="modal-content instruction-content">
+            <span class="close">&times;</span>
+            <h2>Инструкция по формированию маршрутного листа</h2>
+            
+            <div class="instruction-section">
+                <h3>1. Формирование отчета по клиентам в 1С</h3>
+                <ul>
+                    <li>Открываем программу 1С.</li>
+                    <li>Переходим в раздел Продажи → Отчеты по продажам → Справочник клиентов для маршрута.</li>
+                    <li>В параметрах отбора выбираем нужный район и тип торговых клиентов:</li>
+                    <ul>
+                        <li><strong>А</strong> — аптеки</li>
+                        <li><strong>КМ</strong> — косметические магазины</li>
+                        <li><strong>СМ</strong> — смешанные магазины</li>
+                        <li><strong>ПР</strong> — продуктовые магазины</li>
+                        <li><strong>ХМ</strong> — хозяйственные магазины</li>
+                    </ul>
+                    <li>После настройки отчета сохраняем его на рабочий стол в формате .html.</li>
+                </ul>
+            </div>
+            
+            <div class="instruction-section">
+                <h3>2. Загрузка данных в Power BI — Конструктор маршрутов</h3>
+                <ul>
+                    <li>Открываем Power BI-файл Конструктор маршрутов.</li>
+                    <li>Нажимаем кнопку «Загрузить районы» — на карту загружаются все доступные районы.</li>
+                    <li>Затем нажимаем кнопку «Загрузить микрорайоны» — добавляются разделения районов на микрорайоны.</li>
+                    <li>Далее загружаем сохранённый из 1С файл с клиентами:</li>
+                    <ul>
+                        <li>Нажимаем кнопку «Загрузить файл с клиентами»</li>
+                        <li>В нижнем меню окна загрузки устанавливаем фильтр «Все файлы»</li>
+                        <li>Выбираем ранее сохранённый .html-файл</li>
+                    </ul>
+                </ul>
+            </div>
+            
+            <div class="instruction-section">
+                <h3>3. Построение маршрута</h3>
+                <ul>
+                    <li>После загрузки клиенты отображаются на карте.</li>
+                    <li>В области фильтров выбираем район и при необходимости — микрорайон (например, по дню недели или территории).</li>
+                    <li>Нажимаем кнопку «Построить маршрут» — система автоматически распределяет клиентов в оптимальном порядке обхода.</li>
+                    <li>Полученный маршрутный лист можно распечатать или сохранить в удобном формате.</li>
+                </ul>
+            </div>
+            
+            <button id="close-instructions" class="full-width">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно выбора формата сохранения -->
+    <div id="save-format-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Выберите формат сохранения</h2>
+            <div class="form-group">
+                <label>Формат файла:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="save-format" value="json" checked>
+                        JSON (стандартный формат компании)
+                    </label>
+                    <label>
+                        <input type="radio" name="save-format" value="geojson">
+                        GeoJSON (только районы и микрорайоны)
+                    </label>
+                </div>
+            </div>
+            <button id="confirm-save-format" class="full-width">Сохранить</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно мини-редактора -->
+    <div id="mini-editor-modal" class="modal">
+        <div class="modal-content">
+            <span class="close mini-editor-close">&times;</span>
+            <h2>Добавить данные</h2>
+            <div class="form-group">
+                <label for="mini-company">Компания</label>
+                <select id="mini-company"></select>
+            </div>
+            <div class="form-group" id="mini-city-text-wrapper">
+                <label for="mini-city">Город</label>
+                <input type="text" id="mini-city" placeholder="Например: Tashkent">
+            </div>
+            <div class="form-group">
+                <label>Что добавить?</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="mini-type" value="city">
+                        Город
+                    </label>
+                    <label>
+                        <input type="radio" name="mini-type" value="district" checked>
+                        Район
+                    </label>
+                    <label>
+                        <input type="radio" name="mini-type" value="microdistrict">
+                        Микрорайон
+                    </label>
+                </div>
+            </div>
+            <!-- Для выбора города при добавлении района/микрорайона -->
+            <div class="form-group" id="mini-city-select-wrapper" style="display:none;">
+                <label for="mini-city-select">Город</label>
+                <select id="mini-city-select"></select>
+            </div>
+            <!-- Для выбора района при добавлении микрорайона -->
+            <div class="form-group" id="mini-district-select-wrapper" style="display:none;">
+                <label for="mini-district-select">Район</label>
+                <select id="mini-district-select"></select>
+            </div>
+            <!-- Старое текстовое поле района (оставлено скрытым для обратной совместимости) -->
+            <div class="form-group" id="mini-district-wrapper" style="display:none;">
+                <label for="mini-parent-district">Район (для микрорайона)</label>
+                <input type="text" id="mini-parent-district" placeholder="Название существующего района">
+            </div>
+            <div class="form-group" id="mini-name-wrapper">
+                <label for="mini-name">Название</label>
+                <input type="text" id="mini-name" placeholder="Название района/микрорайона">
+            </div>
+            <div class="form-group" id="mini-color-wrapper">
+                <label for="mini-color">Цвет</label>
+                <input type="color" id="mini-color" value="#3388ff">
+            </div>
+            <div class="form-group" id="mini-coords-wrapper">
+                <label for="mini-coords">Координаты (lat,lng на строку; допустимы разделители перенос/; или список [lng,lat])</label>
+                <textarea id="mini-coords" rows="6" placeholder="41.31, 69.28\n41.32, 69.30\n..."></textarea>
+            </div>
+            <button id="mini-save" class="full-width">Добавить</button>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <!-- Наши скрипты -->
+    <script src="js/company_manager.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js?v=1.1"></script>
+    <script src="js/map.js"></script>
+    <script src="js/districts.js"></script>
+    <script src="js/clients.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/routes.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/app.js"></script>

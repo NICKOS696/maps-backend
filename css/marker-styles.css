@@ -1,0 +1,20 @@
+/* Стили для маркеров клиентов */
+.client-marker {
+    z-index: 1000 !important; /* Делаем маркеры клиентов поверх всех слоев */
+}
+
+/* Стили для кружков */
+.leaflet-interactive {
+    cursor: pointer;
+}
+
+/* Дополнительные стили для всех маркеров */
+path.leaflet-interactive {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Стили для маркеров маршрута */
+.route-marker {
+    z-index: 1001 !important; /* Маркеры маршрута должны быть поверх обычных маркеров клиентов */
+}
