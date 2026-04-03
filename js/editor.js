@@ -48,17 +48,17 @@
     const isCity = type === 'city';
     const isDistrict = type === 'district';
     const isMicro = type === 'microdistrict';
-    // поля
-    byId('mini-name-wrapper').style.display = isCity ? 'none' : 'block';
-    byId('mini-color-wrapper').style.display = isCity ? 'none' : 'block';
-    byId('mini-coords-wrapper').style.display = isCity ? 'none' : 'block';
-    // выборы города: либо текст для города, либо селект для район/микрорайон
-    byId('mini-city-text-wrapper').style.display = isCity ? 'block' : 'none';
-    byId('mini-city-select-wrapper').style.display = (isDistrict || isMicro) ? 'block' : 'none';
-    // выбор района только для микрорайона
-    byId('mini-district-select-wrapper').style.display = isMicro ? 'block' : 'none';
-    // устаревшее поле района всегда скрыто
-    byId('mini-district-wrapper').style.display = 'none';
+    
+    // Проверяем существование элементов перед обращением к ним
+    const nameWrapper = byId('mini-name-wrapper');
+    const colorWrapper = byId('mini-color-wrapper');
+    const coordsWrapper = byId('mini-coords-wrapper');
+    const districtSelectWrapper = byId('mini-district-select-wrapper');
+    
+    if (nameWrapper) nameWrapper.style.display = isCity ? 'none' : 'block';
+    if (colorWrapper) colorWrapper.style.display = isCity ? 'none' : 'block';
+    if (coordsWrapper) coordsWrapper.style.display = isCity ? 'none' : 'block';
+    if (districtSelectWrapper) districtSelectWrapper.style.display = isMicro ? 'block' : 'none';
   }
 
   async function openMiniEditor(){
