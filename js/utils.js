@@ -1830,11 +1830,12 @@ function parseCoordinatesToPolygon(coordsText) {
         const coordinates = [];
         
         for (let line of lines) {
+            // Убираем ВСЕ пробелы в начале и конце
             line = line.trim();
             if (!line) continue;
             
             // Убираем лишние символы (запятые в конце, скобки)
-            line = line.replace(/,\s*$/, '').replace(/^\[/, '').replace(/\]$/, '');
+            line = line.replace(/,\s*$/, '').replace(/^\[/, '').replace(/\]$/, '').trim();
             
             // Пробуем разные форматы
             let lat, lng;
