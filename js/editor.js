@@ -96,15 +96,23 @@
     }
     
     // Город: только название, без цвета и координат
-    // Район: название, цвет, координаты + выбор города
-    // Микрорайон: название, цвет, координаты + выбор города + выбор района
+    // Район: название, цвет, координаты + выбор города (только при создании)
+    // Микрорайон: название, цвет, координаты + выбор города + выбор района (только при создании)
     const citySelectWrapper = byId('mini-city-select-wrapper');
     
     if (nameWrapper) nameWrapper.style.display = 'block';
     if (colorWrapper) colorWrapper.style.display = isCity ? 'none' : 'block';
     if (coordsWrapper) coordsWrapper.style.display = isCity ? 'none' : 'block';
-    if (citySelectWrapper) citySelectWrapper.style.display = (isDistrict || isMicro) ? 'block' : 'none';
-    if (districtSelectWrapper) districtSelectWrapper.style.display = isMicro ? 'block' : 'none';
+    
+    // Показываем селекторы города и района только при создании, при редактировании/удалении используем фильтры
+    if (action === 'create') {
+      if (citySelectWrapper) citySelectWrapper.style.display = (isDistrict || isMicro) ? 'block' : 'none';
+      if (districtSelectWrapper) districtSelectWrapper.style.display = isMicro ? 'block' : 'none';
+    } else {
+      // При редактировании/удалении скрываем эти поля, используем фильтры
+      if (citySelectWrapper) citySelectWrapper.style.display = 'none';
+      if (districtSelectWrapper) districtSelectWrapper.style.display = 'none';
+    }
   }
 
   async function openMiniEditor(){
