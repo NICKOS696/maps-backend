@@ -167,8 +167,19 @@ const DistrictsModule = {
      */
     loadDistricts: async function() {
         try {
-            // Загружаем районы через API
-            const response = await ApiModule.getDistricts();
+            // Получаем выбранный город
+            const citySelect = document.getElementById('city-select');
+            const selectedCityId = citySelect.value;
+            
+            if (!selectedCityId) {
+                alert('Выберите город');
+                return;
+            }
+            
+            console.log(`Загрузка районов для города ID: ${selectedCityId}`);
+            
+            // Загружаем районы через API с фильтрацией по городу
+            const response = await ApiModule.getDistricts(selectedCityId);
             
             if (response.success && response.data) {
                 // Очищаем текущий слой
@@ -362,8 +373,19 @@ const DistrictsModule = {
      */
     loadMicrodistricts: async function() {
         try {
-            // Загружаем микрорайоны через API
-            const response = await ApiModule.getMicrodistricts();
+            // Получаем выбранный город
+            const citySelect = document.getElementById('city-select');
+            const selectedCityId = citySelect.value;
+            
+            if (!selectedCityId) {
+                alert('Выберите город');
+                return;
+            }
+            
+            console.log(`Загрузка микрорайонов для города ID: ${selectedCityId}`);
+            
+            // Загружаем микрорайоны через API с фильтрацией по городу
+            const response = await ApiModule.getMicrodistricts(selectedCityId);
             
             if (response.success && response.data) {
                 // Получаем текущие районы для сопоставления district_id -> district name

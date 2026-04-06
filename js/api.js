@@ -74,9 +74,13 @@ const ApiModule = {
     
     /**
      * Получение всех районов
+     * @param {number} cityId - ID города для фильтрации (опционально)
      */
-    async getDistricts() {
-        return await this.request(CONFIG.api.endpoints.districts);
+    async getDistricts(cityId = null) {
+        const url = cityId 
+            ? `${CONFIG.api.endpoints.districts}?city_id=${cityId}`
+            : CONFIG.api.endpoints.districts;
+        return await this.request(url);
     },
     
     /**
@@ -110,9 +114,13 @@ const ApiModule = {
     
     /**
      * Получение всех микрорайонов
+     * @param {number} cityId - ID города для фильтрации (опционально)
      */
-    async getMicrodistricts() {
-        return await this.request(CONFIG.api.endpoints.microdistricts);
+    async getMicrodistricts(cityId = null) {
+        const url = cityId 
+            ? `${CONFIG.api.endpoints.microdistricts}?city_id=${cityId}`
+            : CONFIG.api.endpoints.microdistricts;
+        return await this.request(url);
     },
     
     /**
