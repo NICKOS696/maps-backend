@@ -271,26 +271,91 @@
     
     selectEl.innerHTML = '<option value="">Выберите...</option>';
     
+    // Показываем/скрываем фильтры
+    const filterCityWrapper = byId('mini-filter-city-wrapper');
+    const filterDistrictWrapper = byId('mini-filter-district-wrapper');
+    
+    if (type === 'district' || type === 'microdistrict') {
+      // Показываем фильтр города
+      filterCityWrapper.style.display = 'block';
+      
+      // Загружаем города для фильтра
+      const filterCitySelect = byId('mini-filter-city');
+      filterCitySelect.innerHTML = '<option value="">Все города</option>';
+      const cities = await ApiModule.getCities(companyId);
+      if (cities.success && cities.data) {
+        cities.data.forEach(city => {
+          const opt = document.createElement('option');
+          opt.value = city.id;
+          opt.textContent = city.name;
+          filterCitySelect.appendChild(opt);
+        });
+      }
+      
+      if (type === 'microdistrict') {
+        filterDistrictWrapper.style.display = 'block';
+      } else {
+        filterDistrictWrapper.style.display = 'none';
+      }
+    } else {
+      filterCityWrapper.style.display = 'none';
+      filterDistrictWrapper.style.display = 'none';
+    }
+    
+    // Загружаем объекты с учетом фильтров
+    await filterAndLoadObjects();
+  }
+  
+  // Фильтрация и загрузка объектов
+  async function filterAndLoadObjects() {
+    const action = document.querySelector('input[name="mini-action"]:checked')?.value;
+    const type = document.querySelector('input[name="mini-type"]:checked')?.value;
+    const companyId = byId('mini-company').value;
+    const selectEl = byId('mini-select-existing');
+    
+    if (!selectEl || action === 'create' || !companyId) return;
+    
+    selectEl.innerHTML = '<option value="">Выберите...</option>';
+    
+    const filterCityId = byId('mini-filter-city')?.value;
+    const filterDistrictId = byId('mini-filter-district')?.value;
+    
     try {
       let response;
       if (type === 'city') {
         response = await ApiModule.getCities(companyId);
       } else if (type === 'district') {
         response = await ApiModule.getDistricts();
-        // Фильтруем по компании через city_id
+        // Фильтруем по компании и городу
         if (response.success && response.data) {
           const cities = await ApiModule.getCities(companyId);
           const cityIds = cities.data.map(c => c.id);
           response.data = response.data.filter(d => cityIds.includes(d.city_id));
+          
+          // Дополнительная фильтрация по выбранному городу
+          if (filterCityId) {
+            response.data = response.data.filter(d => d.city_id == filterCityId);
+          }
         }
       } else if (type === 'microdistrict') {
         response = await ApiModule.getMicrodistricts();
-        // Фильтруем по компании через district_id -> city_id
+        // Фильтруем по компании, городу и району
         if (response.success && response.data) {
           const cities = await ApiModule.getCities(companyId);
           const cityIds = cities.data.map(c => c.id);
           const districts = await ApiModule.getDistricts();
-          const districtIds = districts.data.filter(d => cityIds.includes(d.city_id)).map(d => d.id);
+          let districtIds = districts.data.filter(d => cityIds.includes(d.city_id)).map(d => d.id);
+          
+          // Дополнительная фильтрация по выбранному городу
+          if (filterCityId) {
+            districtIds = districts.data.filter(d => d.city_id == filterCityId).map(d => d.id);
+          }
+          
+          // Дополнительная фильтрация по выбранному району
+          if (filterDistrictId) {
+            districtIds = districtIds.filter(id => id == filterDistrictId);
+          }
+          
           response.data = response.data.filter(m => districtIds.includes(m.district_id));
         }
       }
@@ -318,6 +383,11 @@
     
     const obj = JSON.parse(selectedOption.dataset.object);
     const type = document.querySelector('input[name="mini-type"]:checked')?.value;
+    
+    // Для района - сначала загружаем город, потом заполняем название
+    if (type === 'district' && obj.city_id) {
+      byId('mini-city-select').value = obj.city_id;
+    }
     
     // Заполняем поля
     byId('mini-name').value = obj.name || '';
@@ -386,6 +456,42 @@
       if (action === 'edit') {
         await loadObjectForEdit();
       }
+    });
+    
+    // Обработчик фильтра по городу - перезагружаем список объектов и районов
+    byId('mini-filter-city').addEventListener('change', async () => {
+      const type = document.querySelector('input[name="mini-type"]:checked')?.value;
+      const cityId = byId('mini-filter-city').value;
+      
+      // Если выбираем микрорайоны, загружаем районы для фильтра
+      if (type === 'microdistrict') {
+        const filterDistrictSelect = byId('mini-filter-district');
+        filterDistrictSelect.innerHTML = '<option value="">Все районы</option>';
+        
+        if (cityId) {
+          try {
+            const response = await ApiModule.getDistricts();
+            if (response.success && response.data) {
+              const filteredDistricts = response.data.filter(d => d.city_id == cityId);
+              filteredDistricts.forEach(district => {
+                const opt = document.createElement('option');
+                opt.value = district.id;
+                opt.textContent = district.name;
+                filterDistrictSelect.appendChild(opt);
+              });
+            }
+          } catch (e) {
+            console.error('Ошибка загрузки районов:', e);
+          }
+        }
+      }
+      
+      await filterAndLoadObjects();
+    });
+    
+    // Обработчик фильтра по району - перезагружаем список микрорайонов
+    byId('mini-filter-district').addEventListener('change', async () => {
+      await filterAndLoadObjects();
     });
     
     // Обработчик выбора города - фильтруем районы для микрорайона
