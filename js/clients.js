@@ -260,8 +260,16 @@ const ClientsModule = {
         // Очищаем слой клиентов
         MapModule.clientLayer.clearLayers();
         
+        console.log(`Отображение ${this.clients.length} клиентов на карте`);
+        
         // Добавляем маркеры для каждого клиента
-        this.clients.forEach(client => {
+        this.clients.forEach((client, index) => {
+            // Проверяем корректность координат
+            if (!client.lat || !client.lng || isNaN(client.lat) || isNaN(client.lng)) {
+                console.warn(`Клиент ${client.name} имеет некорректные координаты:`, client.lat, client.lng);
+                return;
+            }
+            
             // Используем стандартный цвет для всех клиентов
             const color = '#3388ff';
             
@@ -284,10 +292,10 @@ const ClientsModule = {
             MapModule.clientLayer.addLayer(marker);
         });
         
-        // Приближаем карту к клиентам, если они есть
-        if (MapModule.clientLayer.getLayers().length > 0) {
-            MapModule.map.fitBounds(MapModule.clientLayer.getBounds());
-        }
+        console.log(`Добавлено маркеров на карту: ${MapModule.clientLayer.getLayers().length}`);
+        
+        // НЕ приближаем карту автоматически - пользователь сам выберет нужную область
+        // Это предотвращает неожиданные перемещения карты
     },
     
     /**
@@ -355,26 +363,49 @@ const ClientsModule = {
     filterClients: function(district, microdistrict, visitDay) {
         let filtered = [...this.clients];
         
-        console.log(`Фильтрация клиентов: район=${district}, микрорайон=${microdistrict}`);
+        console.log(`=== ФИЛЬТРАЦИЯ КЛИЕНТОВ ===`);
+        console.log(`Параметры: район="${district}", микрорайон="${microdistrict}"`);
         console.log(`Всего клиентов до фильтрации: ${filtered.length}`);
         
         // Если нет клиентов, возвращаем пустой массив
         if (filtered.length === 0) {
-            console.log('Нет клиентов для фильтрации');
+            console.log('⚠️ Нет клиентов для фильтрации');
             return filtered;
         }
         
         // Если не выбран район и микрорайон, возвращаем всех клиентов
         if (!district && !microdistrict) {
-            console.log('Не выбраны фильтры, возвращаем всех клиентов');
+            console.log('✓ Фильтры не выбраны, возвращаем всех клиентов:', filtered.length);
             return filtered;
         }
         
+        // Проверяем, загружены ли районы/микрорайоны на карте
+        const hasDistricts = MapModule.districtLayer && MapModule.districtLayer.getLayers().length > 0;
+        const hasMicrodistricts = MapModule.microdistrictLayer && MapModule.microdistrictLayer.getLayers().length > 0;
+        
+        console.log(`Районы на карте: ${hasDistricts ? 'загружены' : '❌ НЕ ЗАГРУЖЕНЫ'}`);
+        console.log(`Микрорайоны на карте: ${hasMicrodistricts ? 'загружены' : '❌ НЕ ЗАГРУЖЕНЫ'}`);
+        
+        if (district && !hasDistricts) {
+            console.error('❌ ОШИБКА: Выбран район для фильтрации, но районы не загружены на карте!');
+            console.log('💡 Решение: Сначала нажмите "Загрузить районы"');
+            alert('Сначала загрузите районы на карту (кнопка "Загрузить районы")');
+            return [];
+        }
+        
+        if (microdistrict && !hasMicrodistricts) {
+            console.error('❌ ОШИБКА: Выбран микрорайон для фильтрации, но микрорайоны не загружены на карте!');
+            console.log('💡 Решение: Сначала нажмите "Загрузить микрорайоны"');
+            alert('Сначала загрузите микрорайоны на карту (кнопка "Загрузить микрорайоны")');
+            return [];
+        }
+        
         // Фильтруем по географическому положению
+        let matchedCount = 0;
         filtered = filtered.filter(client => {
             // Проверяем наличие координат
             if (!client || typeof client.lat !== 'number' || typeof client.lng !== 'number' || isNaN(client.lat) || isNaN(client.lng)) {
-                console.warn('Клиент без координат:', client);
+                console.warn('⚠️ Клиент без координат:', client);
                 return false;
             }
             
@@ -386,28 +417,22 @@ const ClientsModule = {
             if (district) {
                 const clientDistrict = DistrictsModule.getDistrictForPoint(point);
                 matchesDistrict = clientDistrict === district;
-                
-                // Для отладки
-                if (!matchesDistrict) {
-                    console.log(`Клиент ${client.name} находится в районе ${clientDistrict || 'не определен'}, а не в ${district}`);
-                }
             }
             
             // Проверяем принадлежность к микрорайону
             if (microdistrict) {
                 const clientMicrodistrict = DistrictsModule.getMicrodistrictForPoint(point);
                 matchesMicrodistrict = clientMicrodistrict === microdistrict;
-                
-                // Для отладки
-                if (!matchesMicrodistrict) {
-                    console.log(`Клиент ${client.name} находится в микрорайоне ${clientMicrodistrict || 'не определен'}, а не в ${microdistrict}`);
-                }
             }
             
-            return matchesDistrict && matchesMicrodistrict;
+            const matches = matchesDistrict && matchesMicrodistrict;
+            if (matches) matchedCount++;
+            
+            return matches;
         });
         
-        console.log(`После геопространственной фильтрации: ${filtered.length} клиентов`);
+        console.log(`✓ После фильтрации: ${filtered.length} клиентов (совпало: ${matchedCount})`);
+        console.log(`=== КОНЕЦ ФИЛЬТРАЦИИ ===`);
         
         return filtered;
     },
