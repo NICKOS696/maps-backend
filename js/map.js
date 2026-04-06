@@ -1100,7 +1100,8 @@ const MapModule = {
                 }
             });
         } else if (filterType === 'microdistrict') {
-            // Показываем только выбранный микрорайон
+            // Показываем только выбранный микрорайон из выбранного района
+            // districtFilter содержит название района для дополнительной фильтрации
             districtLayers.forEach(layer => {
                 // Скрываем все районы
                 if (this.map.hasLayer(layer)) {
@@ -1109,15 +1110,22 @@ const MapModule = {
             });
             
             microdistrictLayers.forEach(layer => {
-                if (layer.feature && layer.feature.properties && layer.feature.properties.name === filterValue) {
-                    // Выбранный микрорайон - показываем
-                    if (!this.map.hasLayer(layer)) {
-                        this.microdistrictLayer.addLayer(layer);
-                    }
-                } else {
-                    // Остальные микрорайоны - скрываем
-                    if (this.map.hasLayer(layer)) {
-                        this.microdistrictLayer.removeLayer(layer);
+                if (layer.feature && layer.feature.properties) {
+                    const props = layer.feature.properties;
+                    // Проверяем название микрорайона И район (если указан)
+                    const nameMatches = props.name === filterValue;
+                    const districtMatches = !districtFilter || props.district === districtFilter;
+                    
+                    if (nameMatches && districtMatches) {
+                        // Выбранный микрорайон из нужного района - показываем
+                        if (!this.map.hasLayer(layer)) {
+                            this.microdistrictLayer.addLayer(layer);
+                        }
+                    } else {
+                        // Остальные микрорайоны - скрываем
+                        if (this.map.hasLayer(layer)) {
+                            this.microdistrictLayer.removeLayer(layer);
+                        }
                     }
                 }
             });

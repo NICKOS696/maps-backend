@@ -139,9 +139,9 @@ const DistrictsModule = {
             if (selectedMicrodistrict && selectedMicrodistrict !== 'whole_district') {
                 this.zoomToMicrodistrict(selectedMicrodistrict);
                 
-                // Фильтруем карту, показываем только выбранный микрорайон
+                // Фильтруем карту, показываем только выбранный микрорайон из выбранного района
                 if (MapModule && MapModule.filterMapBySelection) {
-                    MapModule.filterMapBySelection('microdistrict', selectedMicrodistrict);
+                    MapModule.filterMapBySelection('microdistrict', selectedMicrodistrict, selectedDistrict);
                 }
             } else if (selectedMicrodistrict === 'whole_district' && selectedDistrict) {
                 // Если выбран "Весь район", показываем весь район
