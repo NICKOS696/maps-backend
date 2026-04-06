@@ -380,11 +380,12 @@ const ClientsModule = {
         }
         
         // Проверяем, загружены ли районы/микрорайоны на карте
-        const hasDistricts = MapModule.districtLayer && MapModule.districtLayer.getLayers().length > 0;
-        const hasMicrodistricts = MapModule.microdistrictLayer && MapModule.microdistrictLayer.getLayers().length > 0;
+        // Используем кэш allDistrictLayers вместо getLayers() для более надежной проверки
+        const hasDistricts = MapModule.allDistrictLayers && MapModule.allDistrictLayers.length > 0;
+        const hasMicrodistricts = MapModule.allMicrodistrictLayers && MapModule.allMicrodistrictLayers.length > 0;
         
-        console.log(`Районы на карте: ${hasDistricts ? 'загружены' : '❌ НЕ ЗАГРУЖЕНЫ'}`);
-        console.log(`Микрорайоны на карте: ${hasMicrodistricts ? 'загружены' : '❌ НЕ ЗАГРУЖЕНЫ'}`);
+        console.log(`Районы на карте: ${hasDistricts ? `загружены (${MapModule.allDistrictLayers?.length || 0})` : '❌ НЕ ЗАГРУЖЕНЫ'}`);
+        console.log(`Микрорайоны на карте: ${hasMicrodistricts ? `загружены (${MapModule.allMicrodistrictLayers?.length || 0})` : '❌ НЕ ЗАГРУЖЕНЫ'}`);
         
         if (district && !hasDistricts) {
             console.error('❌ ОШИБКА: Выбран район для фильтрации, но районы не загружены на карте!');
