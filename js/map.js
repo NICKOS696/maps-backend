@@ -1052,8 +1052,9 @@ const MapModule = {
      * Фильтрует отображение районов и микрорайонов на карте
      * @param {string} filterType - Тип фильтра: 'city', 'district', 'microdistrict'
      * @param {string} filterValue - Значение фильтра (название района или микрорайона)
+     * @param {string} districtFilter - Название района для фильтрации микрорайонов (опционально)
      */
-    filterMapBySelection: function(filterType, filterValue) {
+    filterMapBySelection: function(filterType, filterValue, districtFilter) {
         // Используем кэш всех слоев вместо getLayers()
         const districtLayers = this.allDistrictLayers;
         const microdistrictLayers = this.allMicrodistrictLayers;
