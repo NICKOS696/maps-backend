@@ -181,7 +181,8 @@ const DistrictsModule = {
                         id: district.id,
                         name: district.name,
                         color: district.color,
-                        city_id: district.city_id
+                        city_id: district.city_id,
+                        type: 'district'
                     },
                     geometry: district.geometry
                 }));
@@ -365,6 +366,19 @@ const DistrictsModule = {
             const response = await ApiModule.getMicrodistricts();
             
             if (response.success && response.data) {
+                // Получаем текущие районы для сопоставления district_id -> district name
+                const districtMap = {};
+                const districtLayers = MapModule.districtLayer.getLayers();
+                districtLayers.forEach(layer => {
+                    if (layer.feature && layer.feature.properties) {
+                        const id = layer.feature.properties.id;
+                        const name = layer.feature.properties.name;
+                        if (id && name) {
+                            districtMap[id] = name;
+                        }
+                    }
+                });
+                
                 // Очищаем текущий слой
                 MapModule.microdistrictLayer.clearLayers();
                 
@@ -375,7 +389,9 @@ const DistrictsModule = {
                         id: microdistrict.id,
                         name: microdistrict.name,
                         color: microdistrict.color,
-                        district_id: microdistrict.district_id
+                        district_id: microdistrict.district_id,
+                        district: districtMap[microdistrict.district_id] || '', // Добавляем название района
+                        type: 'microdistrict'
                     },
                     geometry: microdistrict.geometry
                 }));
