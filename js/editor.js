@@ -116,6 +116,10 @@
       return;
     }
     
+    // Показываем кнопку "Выйти"
+    const logoutBtn = byId('mini-logout-btn');
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
+    
     const modal = byId('mini-editor-modal');
     
     // Загружаем компании через API
@@ -709,6 +713,20 @@
       } catch (e) {
         console.error('Ошибка авторизации:', e);
         alert('Ошибка при авторизации: ' + e.message);
+      }
+    });
+    
+    // Обработчик кнопки "Выйти"
+    byId('mini-logout-btn').addEventListener('click', () => {
+      if (confirm('Вы уверены, что хотите выйти?')) {
+        // Удаляем токен
+        localStorage.removeItem('auth_token');
+        // Скрываем кнопку "Выйти"
+        byId('mini-logout-btn').style.display = 'none';
+        // Закрываем мини-редактор
+        byId('mini-editor-modal').style.display = 'none';
+        // Показываем сообщение
+        alert('Вы вышли из системы');
       }
     });
   }
