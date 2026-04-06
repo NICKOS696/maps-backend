@@ -414,16 +414,56 @@ const ClientsModule = {
             let matchesDistrict = true;
             let matchesMicrodistrict = true;
             
-            // Проверяем принадлежность к району
+            // Проверяем принадлежность к району - используем геопространственную проверку
             if (district) {
-                const clientDistrict = DistrictsModule.getDistrictForPoint(point);
-                matchesDistrict = clientDistrict === district;
+                matchesDistrict = false;
+                // Ищем слой района с выбранным названием
+                MapModule.allDistrictLayers.forEach(layer => {
+                    if (layer.feature && layer.feature.properties && layer.feature.properties.name === district) {
+                        // Проверяем, находится ли точка внутри этого полигона
+                        const latLng = L.latLng(point[0], point[1]);
+                        if (layer.getBounds && layer.getBounds().contains(latLng)) {
+                            // Дополнительная проверка через leaflet-pip или turf
+                            try {
+                                const geoJson = layer.toGeoJSON();
+                                if (turf && turf.booleanPointInPolygon) {
+                                    const turfPoint = turf.point([point[1], point[0]]); // turf использует [lng, lat]
+                                    if (turf.booleanPointInPolygon(turfPoint, geoJson)) {
+                                        matchesDistrict = true;
+                                    }
+                                }
+                            } catch (e) {
+                                // Если turf не доступен, используем простую проверку bounds
+                                matchesDistrict = true;
+                            }
+                        }
+                    }
+                });
             }
             
             // Проверяем принадлежность к микрорайону
             if (microdistrict) {
-                const clientMicrodistrict = DistrictsModule.getMicrodistrictForPoint(point);
-                matchesMicrodistrict = clientMicrodistrict === microdistrict;
+                matchesMicrodistrict = false;
+                // Ищем слой микрорайона с выбранным названием
+                MapModule.allMicrodistrictLayers.forEach(layer => {
+                    if (layer.feature && layer.feature.properties && layer.feature.properties.name === microdistrict) {
+                        // Проверяем, находится ли точка внутри этого полигона
+                        const latLng = L.latLng(point[0], point[1]);
+                        if (layer.getBounds && layer.getBounds().contains(latLng)) {
+                            try {
+                                const geoJson = layer.toGeoJSON();
+                                if (turf && turf.booleanPointInPolygon) {
+                                    const turfPoint = turf.point([point[1], point[0]]);
+                                    if (turf.booleanPointInPolygon(turfPoint, geoJson)) {
+                                        matchesMicrodistrict = true;
+                                    }
+                                }
+                            } catch (e) {
+                                matchesMicrodistrict = true;
+                            }
+                        }
+                    }
+                });
             }
             
             const matches = matchesDistrict && matchesMicrodistrict;
